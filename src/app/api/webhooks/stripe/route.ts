@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { stripe } from "@/lib/stripe";
-import { db, deposits, campaigns } from "@/db";
+import { db, deposits, users } from "@/db";
 import { eq, sql } from "drizzle-orm";
 import Stripe from "stripe";
 
@@ -74,28 +74,23 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     })
     .where(eq(deposits.id, deposit.id));
 
-  // Add amount to campaign budget and activate if draft
-  const campaign = await db.query.campaigns.findFirst({
-    where: eq(campaigns.id, deposit.campaignId),
-  });
+  // Add amount to user's wallet balance
+  await db
+    .update(users)
+    .set({
+      balance: sql`${users.balance} + ${deposit.amount}`,
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, deposit.userId));
 
-  if (campaign) {
-    await db
-      .update(campaigns)
-      .set({
-        budget: sql`${campaigns.budget} + ${deposit.amount}`,
-        status: campaign.status === "DRAFT" ? "ACTIVE" : campaign.status,
-        updatedAt: new Date(),
-      })
-      .where(eq(campaigns.id, deposit.campaignId));
-  }
-
-  console.log(`Deposit ${deposit.id} completed for campaign ${deposit.campaignId}`);
+  console.log(
+    `Deposit ${deposit.id} completed. Added R$${deposit.amount} to user ${deposit.userId}'s balance.`
+  );
 }
 
 async function handleCheckoutExpired(session: Stripe.Checkout.Session) {
   // Mark deposit as failed
-  const result = await db
+  await db
     .update(deposits)
     .set({ status: "FAILED" })
     .where(eq(deposits.stripeSessionId, session.id));
@@ -104,8 +99,7 @@ async function handleCheckoutExpired(session: Stripe.Checkout.Session) {
 }
 
 async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
-  // Find deposit by payment intent ID (if we have it)
-  // This can happen if payment fails after checkout was created
+  // Find deposit by payment intent ID
   const deposit = await db.query.deposits.findFirst({
     where: eq(deposits.stripePaymentId, paymentIntent.id),
   });
@@ -118,8 +112,8 @@ async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
 
     console.log(`Payment failed for deposit: ${deposit.id}`);
   } else {
-    // Payment intent might not be linked to deposit yet
-    // Log for debugging
-    console.log(`Payment failed for intent: ${paymentIntent.id} (no deposit found)`);
+    console.log(
+      `Payment failed for intent: ${paymentIntent.id} (no deposit found)`
+    );
   }
 }

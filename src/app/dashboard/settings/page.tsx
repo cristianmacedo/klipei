@@ -1,12 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { DepositButton } from "@/components/deposit-button";
 
 interface UserData {
   id: string;
@@ -15,6 +22,7 @@ interface UserData {
   role: string;
   pixKey: string | null;
   avatarUrl: string | null;
+  balance: string;
 }
 
 export default function SettingsPage() {
@@ -24,6 +32,20 @@ export default function SettingsPage() {
   const [name, setName] = useState("");
   const [pixKey, setPixKey] = useState("");
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    // Check for deposit success/cancelled params
+    const depositStatus = searchParams.get("deposit");
+    if (depositStatus === "success") {
+      toast.success("Depósito realizado com sucesso!");
+      // Clean up URL
+      router.replace("/dashboard/settings");
+    } else if (depositStatus === "cancelled") {
+      toast.error("Depósito cancelado");
+      router.replace("/dashboard/settings");
+    }
+  }, [searchParams, router]);
 
   useEffect(() => {
     fetchUser();
@@ -84,8 +106,29 @@ export default function SettingsPage() {
     <div className="space-y-6 max-w-2xl">
       <div>
         <h1 className="text-3xl font-bold text-white">Configurações</h1>
-        <p className="text-zinc-400">Gerencie seu perfil e preferências</p>
+        <p className="text-zinc-400">Gerencie seu perfil e carteira</p>
       </div>
+
+      {/* Wallet Card */}
+      <Card className="bg-zinc-800 border-zinc-700">
+        <CardHeader>
+          <CardTitle className="text-white">Carteira</CardTitle>
+          <CardDescription className="text-zinc-400">
+            Seu saldo disponível para criar campanhas ou sacar
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-zinc-400">Saldo disponível</p>
+              <p className="text-3xl font-bold text-emerald-400">
+                R$ {Number(user?.balance || 0).toFixed(2)}
+              </p>
+            </div>
+            <DepositButton />
+          </div>
+        </CardContent>
+      </Card>
 
       <form onSubmit={handleSave}>
         <Card className="bg-zinc-800 border-zinc-700">
@@ -126,35 +169,21 @@ export default function SettingsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="role" className="text-zinc-300">
-                Tipo de conta
+              <Label htmlFor="pixKey" className="text-zinc-300">
+                Chave PIX
               </Label>
               <Input
-                id="role"
-                value={user?.role === "CREATOR" ? "Criador" : "Clipper"}
-                disabled
-                className="bg-zinc-700 border-zinc-600 text-zinc-400"
+                id="pixKey"
+                type="text"
+                value={pixKey}
+                onChange={(e) => setPixKey(e.target.value)}
+                placeholder="CPF, email, telefone ou chave aleatória"
+                className="bg-zinc-700 border-zinc-600 text-white"
               />
+              <p className="text-xs text-zinc-500">
+                Usada para receber seus pagamentos (saques)
+              </p>
             </div>
-
-            {user?.role === "CLIPPER" && (
-              <div className="space-y-2">
-                <Label htmlFor="pixKey" className="text-zinc-300">
-                  Chave PIX
-                </Label>
-                <Input
-                  id="pixKey"
-                  type="text"
-                  value={pixKey}
-                  onChange={(e) => setPixKey(e.target.value)}
-                  placeholder="CPF, email, telefone ou chave aleatória"
-                  className="bg-zinc-700 border-zinc-600 text-white"
-                />
-                <p className="text-xs text-zinc-500">
-                  Usada para receber seus pagamentos
-                </p>
-              </div>
-            )}
 
             <Button
               type="submit"

@@ -13,13 +13,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { MINIMUM_BUDGET } from "@/types";
 
-interface DepositButtonProps {
-  campaignId: string;
-}
+const MINIMUM_DEPOSIT = 10; // R$10 minimum
 
-export function DepositButton({ campaignId }: DepositButtonProps) {
+export function DepositButton() {
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
@@ -33,7 +30,6 @@ export function DepositButton({ campaignId }: DepositButtonProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          campaignId,
           amount: parseFloat(amount) * 100, // Convert to cents
         }),
       });
@@ -58,14 +54,17 @@ export function DepositButton({ campaignId }: DepositButtonProps) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button className="bg-emerald-600 hover:bg-emerald-700">
-          Adicionar Budget
+          Adicionar Fundos
         </Button>
       </DialogTrigger>
       <DialogContent className="bg-zinc-800 border-zinc-700">
         <DialogHeader>
-          <DialogTitle className="text-white">Adicionar Orçamento</DialogTitle>
+          <DialogTitle className="text-white">
+            Adicionar Fundos à Carteira
+          </DialogTitle>
           <DialogDescription className="text-zinc-400">
-            Adicione fundos à sua campanha para ativá-la
+            Adicione fundos à sua carteira para criar campanhas ou sacar seus
+            ganhos
           </DialogDescription>
         </DialogHeader>
 
@@ -78,17 +77,19 @@ export function DepositButton({ campaignId }: DepositButtonProps) {
               id="amount"
               type="number"
               step="0.01"
-              min={MINIMUM_BUDGET}
+              min={MINIMUM_DEPOSIT}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              placeholder={`Mínimo R$ ${MINIMUM_BUDGET}`}
+              placeholder={`Mínimo R$ ${MINIMUM_DEPOSIT}`}
               required
               className="bg-zinc-700 border-zinc-600 text-white"
             />
           </div>
 
           <div className="text-sm text-zinc-400 space-y-1">
-            <p>Você será redirecionado para o Stripe para completar o pagamento.</p>
+            <p>
+              Você será redirecionado para o Stripe para completar o pagamento.
+            </p>
             <p>Métodos aceitos: Cartão de crédito</p>
           </div>
 

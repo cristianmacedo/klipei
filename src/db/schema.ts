@@ -127,16 +127,16 @@ export const deposits = pgTable(
   "deposits",
   {
     id: text("id").primaryKey(),
-    campaignId: text("campaign_id")
+    userId: text("user_id")
       .notNull()
-      .references(() => campaigns.id),
+      .references(() => users.id),
     amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
     stripeSessionId: text("stripe_session_id"),
     stripePaymentId: text("stripe_payment_id"),
     status: paymentStatusEnum("status").notNull().default("PENDING"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (table) => [index("deposits_campaign_id_idx").on(table.campaignId)]
+  (table) => [index("deposits_user_id_idx").on(table.userId)]
 );
 
 export const withdrawals = pgTable(
@@ -164,6 +164,7 @@ export const withdrawals = pgTable(
 export const usersRelations = relations(users, ({ many }) => ({
   campaigns: many(campaigns),
   clips: many(clips),
+  deposits: many(deposits),
   withdrawals: many(withdrawals),
 }));
 
@@ -173,7 +174,6 @@ export const campaignsRelations = relations(campaigns, ({ one, many }) => ({
     references: [users.id],
   }),
   clips: many(clips),
-  deposits: many(deposits),
 }));
 
 export const clipsRelations = relations(clips, ({ one }) => ({
@@ -188,9 +188,9 @@ export const clipsRelations = relations(clips, ({ one }) => ({
 }));
 
 export const depositsRelations = relations(deposits, ({ one }) => ({
-  campaign: one(campaigns, {
-    fields: [deposits.campaignId],
-    references: [campaigns.id],
+  user: one(users, {
+    fields: [deposits.userId],
+    references: [users.id],
   }),
 }));
 

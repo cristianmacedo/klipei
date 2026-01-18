@@ -1,13 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
@@ -22,6 +28,7 @@ const CAMPAIGN_TYPES = ["CLIPPING", "UGC"] as const;
 export default function NewCampaignPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [userBalance, setUserBalance] = useState<number | null>(null);
   const [requirements, setRequirements] = useState<string[]>([]);
   const [newRequirement, setNewRequirement] = useState("");
 
@@ -37,6 +44,22 @@ export default function NewCampaignPage() {
     sourceContent: "",
   });
 
+  useEffect(() => {
+    fetchUserBalance();
+  }, []);
+
+  const fetchUserBalance = async () => {
+    try {
+      const response = await fetch("/api/users/me");
+      const data = await response.json();
+      if (response.ok) {
+        setUserBalance(Number(data.user.balance));
+      }
+    } catch {
+      console.error("Error fetching balance");
+    }
+  };
+
   const handlePlatformToggle = (platform: string) => {
     setFormData((prev) => ({
       ...prev,
@@ -47,7 +70,10 @@ export default function NewCampaignPage() {
   };
 
   const handleAddRequirement = () => {
-    if (newRequirement.trim() && !requirements.includes(newRequirement.trim())) {
+    if (
+      newRequirement.trim() &&
+      !requirements.includes(newRequirement.trim())
+    ) {
       setRequirements([...requirements, newRequirement.trim()]);
       setNewRequirement("");
     }
@@ -57,8 +83,18 @@ export default function NewCampaignPage() {
     setRequirements(requirements.filter((r) => r !== req));
   };
 
+  const budgetValue = parseFloat(formData.budget) || 0;
+  const hasInsufficientBalance =
+    userBalance !== null && budgetValue > userBalance;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (hasInsufficientBalance) {
+      toast.error("Saldo insuficiente na carteira");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -79,7 +115,11 @@ export default function NewCampaignPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        toast.error(data.error || "Erro ao criar campanha");
+        if (data.error === "Saldo insuficiente") {
+          toast.error(`Saldo insuficiente. Você tem R$ ${data.balance?.toFixed(2) || "0.00"}`);
+        } else {
+          toast.error(data.error || "Erro ao criar campanha");
+        }
         return;
       }
 
@@ -120,6 +160,30 @@ export default function NewCampaignPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Wallet Balance Info */}
+          <Card className="bg-zinc-800 border-zinc-700">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-zinc-400">Saldo na carteira</p>
+                  <p className="text-2xl font-bold text-emerald-400">
+                    R$ {userBalance?.toFixed(2) ?? "..."}
+                  </p>
+                </div>
+                <Link href="/dashboard/settings">
+                  <Button variant="outline" className="border-zinc-600">
+                    Adicionar Fundos
+                  </Button>
+                </Link>
+              </div>
+              {hasInsufficientBalance && (
+                <p className="text-sm text-red-400 mt-2">
+                  Saldo insuficiente para o orçamento selecionado
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Basic Info */}
           <Card className="bg-zinc-800 border-zinc-700">
             <CardHeader>
@@ -200,7 +264,9 @@ export default function NewCampaignPage() {
                   <Badge
                     key={platform}
                     variant={
-                      formData.platforms.includes(platform) ? "default" : "outline"
+                      formData.platforms.includes(platform)
+                        ? "default"
+                        : "outline"
                     }
                     className={`cursor-pointer ${
                       formData.platforms.includes(platform)
@@ -224,7 +290,12 @@ export default function NewCampaignPage() {
           {/* Budget */}
           <Card className="bg-zinc-800 border-zinc-700">
             <CardHeader>
-              <CardTitle className="text-white">Orçamento e Pagamento</CardTitle>
+              <CardTitle className="text-white">
+                Orçamento e Pagamento
+              </CardTitle>
+              <CardDescription className="text-zinc-400">
+                O valor será deduzido da sua carteira ao criar a campanha
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -243,8 +314,16 @@ export default function NewCampaignPage() {
                     }
                     placeholder={`Mínimo R$ ${MINIMUM_BUDGET}`}
                     required
-                    className="bg-zinc-700 border-zinc-600 text-white"
+                    className={`bg-zinc-700 border-zinc-600 text-white ${
+                      hasInsufficientBalance ? "border-red-500" : ""
+                    }`}
                   />
+                  {hasInsufficientBalance && (
+                    <p className="text-xs text-red-400">
+                      Você precisa de mais R${" "}
+                      {(budgetValue - (userBalance || 0)).toFixed(2)}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -279,7 +358,10 @@ export default function NewCampaignPage() {
                   min="0"
                   value={formData.maxPayoutPerClip}
                   onChange={(e) =>
-                    setFormData({ ...formData, maxPayoutPerClip: e.target.value })
+                    setFormData({
+                      ...formData,
+                      maxPayoutPerClip: e.target.value,
+                    })
                   }
                   placeholder="Deixe em branco para não limitar"
                   className="bg-zinc-700 border-zinc-600 text-white"
@@ -343,7 +425,9 @@ export default function NewCampaignPage() {
           {/* Additional Info */}
           <Card className="bg-zinc-800 border-zinc-700">
             <CardHeader>
-              <CardTitle className="text-white">Informações Adicionais</CardTitle>
+              <CardTitle className="text-white">
+                Informações Adicionais
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -396,7 +480,11 @@ export default function NewCampaignPage() {
             <Button
               type="submit"
               className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-              disabled={loading || formData.platforms.length === 0}
+              disabled={
+                loading ||
+                formData.platforms.length === 0 ||
+                hasInsufficientBalance
+              }
             >
               {loading ? "Criando..." : "Criar Campanha"}
             </Button>

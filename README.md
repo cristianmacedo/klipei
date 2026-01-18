@@ -68,13 +68,46 @@ npm run db:migrate   # Aplica migrations
 npm run db:studio    # Abre Drizzle Studio
 ```
 
+## Modelo de Carteira
+
+Klipei usa uma **carteira unificada** para todos os usuários:
+
+### Fluxo de Dinheiro
+
+```
+┌─────────────┐     Depósito via Stripe     ┌─────────────┐
+│   Carteira  │ ◄────────────────────────── │    Banco    │
+│  do Usuário │                             │   Externo   │
+└─────────────┘                             └─────────────┘
+      │
+      │ Criar campanha (aloca budget)
+      ▼
+┌─────────────┐     Earnings (views)        ┌─────────────┐
+│   Campanha  │ ────────────────────────► │   Clipper   │
+│   (budget)  │                             │  (balance)  │
+└─────────────┘                             └─────────────┘
+      │
+      │ Cancelar campanha
+      ▼
+┌─────────────┐
+│   Devolve   │
+│  ao criador │
+└─────────────┘
+```
+
+- **Criadores**: Depositam na carteira → Alocam para campanhas
+- **Clippers**: Ganham por views → Acumulam na carteira → Sacam via PIX
+- **Cancelamento**: Budget restante (budget - spent) volta para a carteira do criador
+
 ## Funcionalidades
 
 ### Para Criadores / Marcas
 
-- Criar campanhas de Content Rewards
+- Depositar fundos na carteira
+- Criar campanhas de Content Rewards (deduz da carteira)
 - Definir orçamento e taxa por 1.000 views
 - Revisar e aprovar submissões
+- Cancelar campanhas (recebe restante de volta)
 - Acompanhar métricas de performance
 
 ### Para Clippers

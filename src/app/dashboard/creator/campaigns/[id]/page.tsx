@@ -3,13 +3,11 @@ export const dynamic = "force-dynamic";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { db, campaigns, clips, deposits } from "@/db";
+import { db, campaigns, clips, users } from "@/db";
 import { eq, desc } from "drizzle-orm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DepositButton } from "@/components/deposit-button";
 import { CampaignActions } from "@/components/campaign-actions";
 import { SubmissionsList } from "@/components/submissions-list";
 
@@ -40,9 +38,6 @@ export default async function CampaignDetailPage({
         },
         orderBy: [desc(clips.submittedAt)],
       },
-      deposits: {
-        orderBy: [desc(deposits.createdAt)],
-      },
     },
   });
 
@@ -54,6 +49,12 @@ export default async function CampaignDetailPage({
     redirect("/dashboard");
   }
 
+  // Get creator's balance
+  const creator = await db.query.users.findFirst({
+    where: eq(users.id, user.id),
+  });
+
+  const creatorBalance = Number(creator?.balance || 0);
   const budgetRemaining = Number(campaign.budget) - Number(campaign.spent);
   const pendingClips = campaign.clips.filter((c) => c.status === "PENDING");
   const approvedClips = campaign.clips.filter((c) => c.status === "APPROVED");
@@ -103,7 +104,7 @@ export default async function CampaignDetailPage({
         <Card className="bg-zinc-800 border-zinc-700">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-zinc-400">
-              Orçamento
+              Orçamento Alocado
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -159,7 +160,7 @@ export default async function CampaignDetailPage({
         </Card>
       </div>
 
-      {/* Budget Alert */}
+      {/* Draft Campaign Alert */}
       {campaign.status === "DRAFT" && (
         <Card className="bg-yellow-900/20 border-yellow-700">
           <CardContent className="pt-6">
@@ -169,10 +170,9 @@ export default async function CampaignDetailPage({
                   Campanha em rascunho
                 </p>
                 <p className="text-sm text-zinc-400">
-                  Adicione orçamento para ativar a campanha
+                  Ative a campanha para começar a receber submissões
                 </p>
               </div>
-              <DepositButton campaignId={campaign.id} />
             </div>
           </CardContent>
         </Card>
@@ -192,12 +192,6 @@ export default async function CampaignDetailPage({
             className="data-[state=active]:bg-zinc-700"
           >
             Detalhes
-          </TabsTrigger>
-          <TabsTrigger
-            value="deposits"
-            className="data-[state=active]:bg-zinc-700"
-          >
-            Depósitos ({campaign.deposits.length})
           </TabsTrigger>
         </TabsList>
 
@@ -266,56 +260,6 @@ export default async function CampaignDetailPage({
                   ))}
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="deposits">
-          <Card className="bg-zinc-800 border-zinc-700">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-white">
-                Histórico de Depósitos
-              </CardTitle>
-              <DepositButton campaignId={campaign.id} />
-            </CardHeader>
-            <CardContent>
-              {campaign.deposits.length === 0 ? (
-                <p className="text-zinc-500 text-center py-8">
-                  Nenhum depósito realizado
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {campaign.deposits.map((deposit) => (
-                    <div
-                      key={deposit.id}
-                      className="flex items-center justify-between p-3 rounded-lg bg-zinc-700/50"
-                    >
-                      <div>
-                        <p className="text-white">
-                          R$ {Number(deposit.amount).toFixed(2)}
-                        </p>
-                        <p className="text-xs text-zinc-500">
-                          {new Date(deposit.createdAt).toLocaleDateString(
-                            "pt-BR"
-                          )}
-                        </p>
-                      </div>
-                      <Badge
-                        variant="secondary"
-                        className={`${
-                          deposit.status === "COMPLETED"
-                            ? "bg-emerald-600/20 text-emerald-400"
-                            : deposit.status === "PENDING"
-                            ? "bg-yellow-600/20 text-yellow-400"
-                            : "bg-red-600/20 text-red-400"
-                        } border-0`}
-                      >
-                        {deposit.status}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
             </CardContent>
           </Card>
         </TabsContent>

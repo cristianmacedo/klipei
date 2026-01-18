@@ -49,19 +49,19 @@ export async function getOrCreateStripeCustomer(userId: string) {
 
 export async function createCheckoutSession({
   customerId,
-  campaignId,
+  depositId,
   amount,
   successUrl,
   cancelUrl,
 }: {
   customerId: string;
-  campaignId: string;
+  depositId: string;
   amount: number; // in cents (BRL)
   successUrl: string;
   cancelUrl: string;
 }) {
   const session = await stripe.checkout.sessions.create({
-    customer: customerId, // Always pass customer ID
+    customer: customerId,
     payment_method_types: ["card"],
     line_items: [
       {
@@ -69,8 +69,10 @@ export async function createCheckoutSession({
           currency: "brl",
           unit_amount: amount,
           product_data: {
-            name: "Depósito de Budget",
-            description: `Adicionar R$${(amount / 100).toFixed(2)} ao orçamento da campanha`,
+            name: "Depósito na Carteira",
+            description: `Adicionar R$${(amount / 100).toFixed(
+              2
+            )} à sua carteira`,
           },
         },
         quantity: 1,
@@ -80,7 +82,7 @@ export async function createCheckoutSession({
     success_url: successUrl,
     cancel_url: cancelUrl,
     metadata: {
-      campaignId,
+      depositId,
     },
   });
 

@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { db, campaigns, deposits } from "@/db";
+import { db, deposits } from "@/db";
 import { eq } from "drizzle-orm";
 import { getOrCreateStripeCustomer, createCheckoutSession } from "@/lib/stripe";
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { MINIMUM_BUDGET } from "@/types";
 
 const checkoutSchema = z.object({
-  campaignId: z.string(),
-  amount: z.number().min(MINIMUM_BUDGET * 100), // in cents
+  amount: z.number().min(1000), // Minimum R$10 in cents
 });
 
 export async function POST(request: Request) {
@@ -24,46 +22,30 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { campaignId, amount } = checkoutSchema.parse(body);
+    const { amount } = checkoutSchema.parse(body);
 
-    // Check if campaign exists and belongs to user
-    const campaign = await db.query.campaigns.findFirst({
-      where: eq(campaigns.id, campaignId),
-    });
-
-    if (!campaign) {
-      return NextResponse.json(
-        { error: "Campanha não encontrada" },
-        { status: 404 }
-      );
-    }
-
-    if (campaign.creatorId !== user.id) {
-      return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
-    }
-
-    // Get or create Stripe customer BEFORE checkout
+    // Get or create Stripe customer
     const stripeCustomerId = await getOrCreateStripeCustomer(user.id);
 
-    // Create deposit record
+    // Create deposit record (now linked to user, not campaign)
     const [deposit] = await db
       .insert(deposits)
       .values({
         id: nanoid(),
-        campaignId,
-        amount: String(amount / 100), // Convert back to BRL
+        userId: user.id,
+        amount: String(amount / 100), // Convert cents to BRL
         status: "PENDING",
       })
       .returning();
 
-    // Create Stripe checkout session with customer
+    // Create Stripe checkout session
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const session = await createCheckoutSession({
       customerId: stripeCustomerId,
-      campaignId,
+      depositId: deposit.id,
       amount,
-      successUrl: `${appUrl}/dashboard/creator/campaigns/${campaignId}?deposit=success`,
-      cancelUrl: `${appUrl}/dashboard/creator/campaigns/${campaignId}?deposit=cancelled`,
+      successUrl: `${appUrl}/dashboard/settings?deposit=success`,
+      cancelUrl: `${appUrl}/dashboard/settings?deposit=cancelled`,
     });
 
     // Update deposit with session ID

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { db, campaigns, clips, deposits, users } from "@/db";
-import { eq, desc } from "drizzle-orm";
+import { db, campaigns, clips, users } from "@/db";
+import { eq, desc, sql } from "drizzle-orm";
 import { z } from "zod";
 
 const updateCampaignSchema = z.object({
@@ -29,9 +29,6 @@ export async function GET(
             clipper: true,
           },
           orderBy: [desc(clips.submittedAt)],
-        },
-        deposits: {
-          orderBy: [desc(deposits.createdAt)],
         },
       },
     });
@@ -171,17 +168,69 @@ export async function DELETE(
       return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
     }
 
-    // Only allow deleting DRAFT campaigns
-    if (campaign.status !== "DRAFT") {
-      return NextResponse.json(
-        { error: "Apenas campanhas em rascunho podem ser excluídas" },
-        { status: 400 }
-      );
+    // Calculate refund: budget - spent
+    const budget = Number(campaign.budget);
+    const spent = Number(campaign.spent);
+    const refund = budget - spent;
+
+    // Only DRAFT campaigns can be deleted (no refund needed since no clips yet)
+    // ACTIVE/PAUSED campaigns can be cancelled (refund remaining budget)
+    if (campaign.status === "DRAFT") {
+      // Refund the full budget back to user's wallet
+      if (budget > 0) {
+        await db
+          .update(users)
+          .set({
+            balance: sql`${users.balance} + ${budget}`,
+            updatedAt: new Date(),
+          })
+          .where(eq(users.id, user.id));
+      }
+
+      // Delete the draft campaign
+      await db.delete(campaigns).where(eq(campaigns.id, id));
+
+      return NextResponse.json({
+        success: true,
+        action: "deleted",
+        refunded: budget,
+      });
     }
 
-    await db.delete(campaigns).where(eq(campaigns.id, id));
+    // For ACTIVE/PAUSED campaigns, cancel and refund remaining
+    if (campaign.status === "ACTIVE" || campaign.status === "PAUSED") {
+      // Refund remaining budget (budget - spent)
+      if (refund > 0) {
+        await db
+          .update(users)
+          .set({
+            balance: sql`${users.balance} + ${refund}`,
+            updatedAt: new Date(),
+          })
+          .where(eq(users.id, user.id));
+      }
 
-    return NextResponse.json({ success: true });
+      // Mark campaign as completed (cancelled)
+      await db
+        .update(campaigns)
+        .set({
+          status: "COMPLETED",
+          updatedAt: new Date(),
+        })
+        .where(eq(campaigns.id, id));
+
+      return NextResponse.json({
+        success: true,
+        action: "cancelled",
+        refunded: refund,
+      });
+    }
+
+    // COMPLETED campaigns can't be deleted/cancelled
+    return NextResponse.json(
+      { error: "Campanhas finalizadas não podem ser excluídas" },
+      { status: 400 }
+    );
   } catch (error) {
     console.error("Error deleting campaign:", error);
     return NextResponse.json({ error: "Erro interno" }, { status: 500 });

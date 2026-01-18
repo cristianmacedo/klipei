@@ -51,7 +51,7 @@ export async function POST(request: Request) {
           email: user.email!,
           name: user.user_metadata?.name || user.email?.split("@")[0],
           avatarUrl: user.user_metadata?.avatar_url,
-          role: "CREATOR", // Default to creator when creating campaign
+          role: "CREATOR",
         })
         .returning();
       dbUser = newUser;
@@ -60,7 +60,29 @@ export async function POST(request: Request) {
     const body = await request.json();
     const data = createCampaignSchema.parse(body);
 
-    // Create campaign
+    // Check if user has enough balance
+    const userBalance = Number(dbUser.balance);
+    if (userBalance < data.budget) {
+      return NextResponse.json(
+        {
+          error: "Saldo insuficiente",
+          balance: userBalance,
+          required: data.budget,
+        },
+        { status: 400 }
+      );
+    }
+
+    // Deduct budget from user's wallet
+    await db
+      .update(users)
+      .set({
+        balance: sql`${users.balance} - ${data.budget}`,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, user.id));
+
+    // Create campaign with the allocated budget
     const [campaign] = await db
       .insert(campaigns)
       .values({

@@ -1,7 +1,15 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/server";
 
-export default function Home() {
+export default async function Home() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const isLoggedIn = !!user;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900">
       {/* Header */}
@@ -11,16 +19,26 @@ export default function Home() {
             Klipei
           </Link>
           <div className="flex items-center gap-4">
-            <Link href="/login">
-              <Button variant="ghost" className="text-zinc-300 hover:text-white">
-                Entrar
-              </Button>
-            </Link>
-            <Link href="/signup">
-              <Button className="bg-emerald-600 hover:bg-emerald-700">
-                Começar agora
-              </Button>
-            </Link>
+            {isLoggedIn ? (
+              <Link href="/dashboard">
+                <Button className="bg-emerald-600 hover:bg-emerald-700">
+                  Dashboard
+                </Button>
+              </Link>
+            ) : (
+              <>
+                <Link href="/login">
+                  <Button variant="ghost" className="text-zinc-300 hover:text-white">
+                    Entrar
+                  </Button>
+                </Link>
+                <Link href="/signup">
+                  <Button className="bg-emerald-600 hover:bg-emerald-700">
+                    Começar agora
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
         </nav>
       </header>
@@ -39,18 +57,18 @@ export default function Home() {
             paga pelas views que eles geram.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/signup">
+            <Link href={isLoggedIn ? "/dashboard/campaigns/new" : "/signup"}>
               <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700 text-lg px-8">
                 Criar campanha
               </Button>
             </Link>
-            <Link href="/signup">
+            <Link href={isLoggedIn ? "/campaigns" : "/signup"}>
               <Button
                 size="lg"
                 variant="outline"
                 className="text-lg px-8 border-zinc-600 text-zinc-300 hover:bg-zinc-800"
               >
-                Sou clipper
+                {isLoggedIn ? "Ver campanhas" : "Sou clipper"}
               </Button>
             </Link>
           </div>
@@ -149,11 +167,11 @@ export default function Home() {
         {/* CTA */}
         <div className="mt-32 text-center">
           <h2 className="text-3xl font-bold text-white mb-6">
-            Pronto para começar?
+            {isLoggedIn ? "Continue de onde parou" : "Pronto para começar?"}
           </h2>
-          <Link href="/signup">
+          <Link href={isLoggedIn ? "/dashboard" : "/signup"}>
             <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700 text-lg px-8">
-              Criar conta grátis
+              {isLoggedIn ? "Ir para o Dashboard" : "Criar conta grátis"}
             </Button>
           </Link>
         </div>

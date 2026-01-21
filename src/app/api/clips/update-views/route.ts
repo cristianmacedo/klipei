@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { db, clips, campaigns, users } from "@/db";
+import { db, clips, campaigns, users, transactions } from "@/db";
 import { eq, sql } from "drizzle-orm";
 import { getYouTubeVideosStatsBatch } from "@/lib/youtube";
+import { nanoid } from "nanoid";
 
 // This endpoint can be called by a cron job to update views
 export async function POST(request: Request) {
@@ -81,14 +82,33 @@ export async function POST(request: Request) {
                 })
                 .where(eq(campaigns.id, clip.campaignId));
 
+              // Get clipper's current balance for transaction record
+              const [clipper] = await tx
+                .select()
+                .from(users)
+                .where(eq(users.id, clip.clipperId));
+              const newBalance = Number(clipper.balance) + earningsDelta;
+
               // Update clipper balance
               await tx
                 .update(users)
                 .set({
-                  balance: sql`${users.balance} + ${earningsDelta}`,
+                  balance: String(newBalance),
                   updatedAt: new Date(),
                 })
                 .where(eq(users.id, clip.clipperId));
+
+              // Create earning transaction record
+              await tx.insert(transactions).values({
+                id: nanoid(),
+                userId: clip.clipperId,
+                type: "EARNING",
+                amount: String(earningsDelta),
+                balanceAfter: String(newBalance),
+                clipId: clip.id,
+                campaignId: clip.campaignId,
+                description: `Ganhos do clip na campanha: ${clip.campaign.title}`,
+              });
             });
 
             updates.push({

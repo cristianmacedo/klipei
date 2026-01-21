@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { stripe } from "@/lib/stripe";
-import { db, deposits, users } from "@/db";
-import { eq, sql } from "drizzle-orm";
+import { db, deposits, users, transactions } from "@/db";
+import { eq } from "drizzle-orm";
 import Stripe from "stripe";
+import { nanoid } from "nanoid";
 
 export async function POST(request: Request) {
   const body = await request.text();
@@ -65,23 +66,46 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     return;
   }
 
-  // Update deposit status
-  await db
-    .update(deposits)
-    .set({
-      status: "COMPLETED",
-      stripePaymentId: session.payment_intent as string,
-    })
-    .where(eq(deposits.id, deposit.id));
+  // Atomic transaction: update deposit, update balance, create transaction record
+  await db.transaction(async (tx) => {
+    // Update deposit status
+    await tx
+      .update(deposits)
+      .set({
+        status: "COMPLETED",
+        stripePaymentId: session.payment_intent as string,
+      })
+      .where(eq(deposits.id, deposit.id));
 
-  // Add amount to user's wallet balance
-  await db
-    .update(users)
-    .set({
-      balance: sql`${users.balance} + ${deposit.amount}`,
-      updatedAt: new Date(),
-    })
-    .where(eq(users.id, deposit.userId));
+    // Get current user balance
+    const [currentUser] = await tx
+      .select()
+      .from(users)
+      .where(eq(users.id, deposit.userId));
+
+    const depositAmount = Number(deposit.amount);
+    const newBalance = Number(currentUser.balance) + depositAmount;
+
+    // Add amount to user's wallet balance
+    await tx
+      .update(users)
+      .set({
+        balance: String(newBalance),
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, deposit.userId));
+
+    // Create deposit transaction record
+    await tx.insert(transactions).values({
+      id: nanoid(),
+      userId: deposit.userId,
+      type: "DEPOSIT",
+      amount: String(depositAmount),
+      balanceAfter: String(newBalance),
+      depositId: deposit.id,
+      description: `Depósito via Stripe`,
+    });
+  });
 
   console.log(
     `Deposit ${deposit.id} completed. Added R$${deposit.amount} to user ${deposit.userId}'s balance.`

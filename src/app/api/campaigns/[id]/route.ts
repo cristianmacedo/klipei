@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { db, campaigns, clips, users } from "@/db";
+import { db, campaigns, clips, users, transactions } from "@/db";
 import { eq, desc, sql } from "drizzle-orm";
 import { z } from "zod";
+import { nanoid } from "nanoid";
 
 const updateCampaignSchema = z.object({
   title: z.string().min(5).max(100).optional(),
@@ -173,20 +174,38 @@ export async function DELETE(
     const spent = Number(campaign.spent);
     const refund = budget - spent;
 
-    // Only DRAFT campaigns can be deleted (no refund needed since no clips yet)
+    // Only DRAFT campaigns can be deleted (refund full budget)
     // ACTIVE/PAUSED campaigns can be cancelled (refund remaining budget)
     if (campaign.status === "DRAFT") {
       // Refund and delete atomically
       await db.transaction(async (tx) => {
-        // Refund the full budget back to user's wallet
         if (budget > 0) {
+          // Get current balance for transaction record
+          const [currentUser] = await tx
+            .select()
+            .from(users)
+            .where(eq(users.id, user.id));
+          const newBalance = Number(currentUser.balance) + budget;
+
+          // Refund the full budget back to user's wallet
           await tx
             .update(users)
             .set({
-              balance: sql`${users.balance} + ${budget}`,
+              balance: String(newBalance),
               updatedAt: new Date(),
             })
             .where(eq(users.id, user.id));
+
+          // Create refund transaction record
+          await tx.insert(transactions).values({
+            id: nanoid(),
+            userId: user.id,
+            type: "CAMPAIGN_REFUND",
+            amount: String(budget),
+            balanceAfter: String(newBalance),
+            campaignId: id,
+            description: `Reembolso da campanha excluída: ${campaign.title}`,
+          });
         }
 
         // Delete the draft campaign
@@ -204,15 +223,33 @@ export async function DELETE(
     if (campaign.status === "ACTIVE" || campaign.status === "PAUSED") {
       // Refund and update status atomically
       await db.transaction(async (tx) => {
-        // Refund remaining budget (budget - spent)
         if (refund > 0) {
+          // Get current balance for transaction record
+          const [currentUser] = await tx
+            .select()
+            .from(users)
+            .where(eq(users.id, user.id));
+          const newBalance = Number(currentUser.balance) + refund;
+
+          // Refund remaining budget (budget - spent)
           await tx
             .update(users)
             .set({
-              balance: sql`${users.balance} + ${refund}`,
+              balance: String(newBalance),
               updatedAt: new Date(),
             })
             .where(eq(users.id, user.id));
+
+          // Create refund transaction record
+          await tx.insert(transactions).values({
+            id: nanoid(),
+            userId: user.id,
+            type: "CAMPAIGN_REFUND",
+            amount: String(refund),
+            balanceAfter: String(newBalance),
+            campaignId: id,
+            description: `Reembolso da campanha cancelada: ${campaign.title}`,
+          });
         }
 
         // Mark campaign as completed (cancelled)

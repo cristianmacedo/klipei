@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { db, users, withdrawals } from "@/db";
-import { eq, sql } from "drizzle-orm";
+import { db, users, withdrawals, transactions } from "@/db";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { MINIMUM_WITHDRAWAL_AMOUNT, WITHDRAWAL_FEE_PERCENTAGE } from "@/types";
@@ -50,10 +50,23 @@ export async function POST(request: Request) {
 
     // Create withdrawal and update user balance atomically
     const withdrawal = await db.transaction(async (tx) => {
+      // Re-fetch user inside transaction for accurate balance
+      const [currentUser] = await tx
+        .select()
+        .from(users)
+        .where(eq(users.id, user.id));
+
+      const currentBalance = Number(currentUser.balance);
+      if (currentBalance < amount) {
+        throw new Error("INSUFFICIENT_BALANCE");
+      }
+
+      const withdrawalId = nanoid();
+
       const [newWithdrawal] = await tx
         .insert(withdrawals)
         .values({
-          id: nanoid(),
+          id: withdrawalId,
           userId: user.id,
           amount: String(amount),
           fee: String(fee),
@@ -63,14 +76,40 @@ export async function POST(request: Request) {
         })
         .returning();
 
+      // Calculate balances sequentially for proper ledger reconstruction
+      const balanceAfterWithdrawal = currentBalance - netAmount;
+      const balanceAfterFee = balanceAfterWithdrawal - fee; // Final balance after both deductions
+
       await tx
         .update(users)
         .set({
-          balance: sql`${users.balance} - ${amount}`,
+          balance: String(balanceAfterFee), // Final balance
           pixKey,
           updatedAt: new Date(),
         })
         .where(eq(users.id, user.id));
+
+      // Create withdrawal transaction (net amount to user)
+      await tx.insert(transactions).values({
+        id: nanoid(),
+        userId: user.id,
+        type: "WITHDRAWAL",
+        amount: String(-netAmount),
+        balanceAfter: String(balanceAfterWithdrawal),
+        withdrawalId: withdrawalId,
+        description: `Saque via PIX`,
+      });
+
+      // Create withdrawal fee transaction (platform revenue)
+      await tx.insert(transactions).values({
+        id: nanoid(),
+        userId: user.id,
+        type: "WITHDRAWAL_FEE",
+        amount: String(-fee),
+        balanceAfter: String(balanceAfterFee),
+        withdrawalId: withdrawalId,
+        description: `Taxa de saque (${(WITHDRAWAL_FEE_PERCENTAGE * 100).toFixed(0)}%)`,
+      });
 
       return newWithdrawal;
     });
@@ -80,6 +119,14 @@ export async function POST(request: Request) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: "Dados inválidos", details: error.issues },
+        { status: 400 }
+      );
+    }
+
+    // Handle insufficient balance from transaction
+    if (error instanceof Error && error.message === "INSUFFICIENT_BALANCE") {
+      return NextResponse.json(
+        { error: "Saldo insuficiente" },
         { status: 400 }
       );
     }

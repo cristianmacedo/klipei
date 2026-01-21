@@ -10,6 +10,8 @@ export type {
   NewDeposit,
   Withdrawal,
   NewWithdrawal,
+  Transaction,
+  NewTransaction,
 } from "@/db/schema";
 
 // Extended types with relations
@@ -65,3 +67,12 @@ export type UserRole = "CREATOR" | "CLIPPER";
 export type CampaignStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED";
 export type ClipStatus = "PENDING" | "APPROVED" | "REJECTED" | "FLAGGED";
 export type PaymentStatus = "PENDING" | "COMPLETED" | "FAILED";
+export type TransactionType =
+  | "DEPOSIT"
+  | "WITHDRAWAL"
+  | "WITHDRAWAL_FEE"
+  | "CAMPAIGN_FUND"
+  | "CAMPAIGN_REFUND"
+  | "EARNING"
+  | "PLATFORM_FEE"
+  | "REFUND";

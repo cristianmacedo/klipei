@@ -37,6 +37,16 @@ export const paymentStatusEnum = pgEnum("payment_status", [
   "COMPLETED",
   "FAILED",
 ]);
+export const transactionTypeEnum = pgEnum("transaction_type", [
+  "DEPOSIT",
+  "WITHDRAWAL",
+  "WITHDRAWAL_FEE",
+  "CAMPAIGN_FUND",
+  "CAMPAIGN_REFUND",
+  "EARNING",
+  "PLATFORM_FEE",
+  "REFUND",
+]);
 
 // Tables
 export const users = pgTable("users", {
@@ -162,12 +172,41 @@ export const withdrawals = pgTable(
   ]
 );
 
+export const transactions = pgTable(
+  "transactions",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    type: transactionTypeEnum("type").notNull(),
+    amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+    balanceAfter: decimal("balance_after", { precision: 10, scale: 2 }).notNull(),
+    // Optional references for tracking
+    clipId: text("clip_id").references(() => clips.id),
+    campaignId: text("campaign_id").references(() => campaigns.id),
+    depositId: text("deposit_id").references(() => deposits.id),
+    withdrawalId: text("withdrawal_id").references(() => withdrawals.id),
+    description: text("description"),
+    metadata: text("metadata"), // JSON string for extra data
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("transactions_user_id_idx").on(table.userId),
+    index("transactions_type_idx").on(table.type),
+    index("transactions_created_at_idx").on(table.createdAt),
+    // Composite index for paginated history queries (e.g., WHERE userId = ? ORDER BY createdAt DESC)
+    index("transactions_user_created_idx").on(table.userId, table.createdAt),
+  ]
+);
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   campaigns: many(campaigns),
   clips: many(clips),
   deposits: many(deposits),
   withdrawals: many(withdrawals),
+  transactions: many(transactions),
 }));
 
 export const campaignsRelations = relations(campaigns, ({ one, many }) => ({
@@ -176,9 +215,10 @@ export const campaignsRelations = relations(campaigns, ({ one, many }) => ({
     references: [users.id],
   }),
   clips: many(clips),
+  transactions: many(transactions),
 }));
 
-export const clipsRelations = relations(clips, ({ one }) => ({
+export const clipsRelations = relations(clips, ({ one, many }) => ({
   campaign: one(campaigns, {
     fields: [clips.campaignId],
     references: [campaigns.id],
@@ -187,19 +227,45 @@ export const clipsRelations = relations(clips, ({ one }) => ({
     fields: [clips.clipperId],
     references: [users.id],
   }),
+  transactions: many(transactions),
 }));
 
-export const depositsRelations = relations(deposits, ({ one }) => ({
+export const depositsRelations = relations(deposits, ({ one, many }) => ({
   user: one(users, {
     fields: [deposits.userId],
     references: [users.id],
   }),
+  transactions: many(transactions),
 }));
 
-export const withdrawalsRelations = relations(withdrawals, ({ one }) => ({
+export const withdrawalsRelations = relations(withdrawals, ({ one, many }) => ({
   user: one(users, {
     fields: [withdrawals.userId],
     references: [users.id],
+  }),
+  transactions: many(transactions),
+}));
+
+export const transactionsRelations = relations(transactions, ({ one }) => ({
+  user: one(users, {
+    fields: [transactions.userId],
+    references: [users.id],
+  }),
+  clip: one(clips, {
+    fields: [transactions.clipId],
+    references: [clips.id],
+  }),
+  campaign: one(campaigns, {
+    fields: [transactions.campaignId],
+    references: [campaigns.id],
+  }),
+  deposit: one(deposits, {
+    fields: [transactions.depositId],
+    references: [deposits.id],
+  }),
+  withdrawal: one(withdrawals, {
+    fields: [transactions.withdrawalId],
+    references: [withdrawals.id],
   }),
 }));
 
@@ -214,3 +280,5 @@ export type Deposit = typeof deposits.$inferSelect;
 export type NewDeposit = typeof deposits.$inferInsert;
 export type Withdrawal = typeof withdrawals.$inferSelect;
 export type NewWithdrawal = typeof withdrawals.$inferInsert;
+export type Transaction = typeof transactions.$inferSelect;
+export type NewTransaction = typeof transactions.$inferInsert;

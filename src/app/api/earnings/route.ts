@@ -28,7 +28,7 @@ export async function GET() {
       with: {
         campaign: true,
       },
-      orderBy: [desc(clips.approvedAt)],
+      orderBy: [desc(clips.reviewedAt)],
     });
 
     const approvedClips = clipperClips.filter((c) => c.status === "APPROVED");
@@ -60,7 +60,7 @@ export async function GET() {
       amount: Number(clip.earnings),
       campaignTitle: clip.campaign.title,
       clipId: clip.id,
-      createdAt: clip.approvedAt?.toISOString() || clip.submittedAt.toISOString(),
+      createdAt: clip.reviewedAt?.toISOString() || clip.submittedAt.toISOString(),
     }));
 
     return NextResponse.json({

@@ -8,7 +8,12 @@ import {
   MINIMUM_BUDGET,
   MINIMUM_RATE_PER_MIL,
   MAXIMUM_RATE_PER_MIL,
+  type CampaignStatus,
 } from "@/types";
+
+// Valid enum values for filtering
+const VALID_STATUSES: CampaignStatus[] = ["DRAFT", "ACTIVE", "PAUSED", "COMPLETED"];
+const VALID_TYPES = ["CLIPPING", "UGC"] as const;
 
 const createCampaignSchema = z.object({
   title: z.string().min(5).max(100),
@@ -126,11 +131,11 @@ export async function GET(request: Request) {
     const type = searchParams.get("type");
 
     const conditions = [];
-    if (status) {
-      conditions.push(eq(campaigns.status, status as any));
+    if (status && VALID_STATUSES.includes(status as CampaignStatus)) {
+      conditions.push(eq(campaigns.status, status as CampaignStatus));
     }
-    if (type) {
-      conditions.push(eq(campaigns.type, type as any));
+    if (type && VALID_TYPES.includes(type as (typeof VALID_TYPES)[number])) {
+      conditions.push(eq(campaigns.type, type as (typeof VALID_TYPES)[number]));
     }
 
     const result = await db

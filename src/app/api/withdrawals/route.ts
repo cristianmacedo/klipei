@@ -48,28 +48,32 @@ export async function POST(request: Request) {
     const fee = amount * WITHDRAWAL_FEE_PERCENTAGE;
     const netAmount = amount - fee;
 
-    // Create withdrawal and update user balance in a transaction
-    const [withdrawal] = await db
-      .insert(withdrawals)
-      .values({
-        id: nanoid(),
-        userId: user.id,
-        amount: String(amount),
-        fee: String(fee),
-        netAmount: String(netAmount),
-        pixKey,
-        status: "PENDING",
-      })
-      .returning();
+    // Create withdrawal and update user balance atomically
+    const withdrawal = await db.transaction(async (tx) => {
+      const [newWithdrawal] = await tx
+        .insert(withdrawals)
+        .values({
+          id: nanoid(),
+          userId: user.id,
+          amount: String(amount),
+          fee: String(fee),
+          netAmount: String(netAmount),
+          pixKey,
+          status: "PENDING",
+        })
+        .returning();
 
-    await db
-      .update(users)
-      .set({
-        balance: sql`${users.balance} - ${amount}`,
-        pixKey,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, user.id));
+      await tx
+        .update(users)
+        .set({
+          balance: sql`${users.balance} - ${amount}`,
+          pixKey,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, user.id));
+
+      return newWithdrawal;
+    });
 
     return NextResponse.json({ success: true, withdrawal });
   } catch (error) {

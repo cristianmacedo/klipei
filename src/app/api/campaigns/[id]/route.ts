@@ -176,19 +176,22 @@ export async function DELETE(
     // Only DRAFT campaigns can be deleted (no refund needed since no clips yet)
     // ACTIVE/PAUSED campaigns can be cancelled (refund remaining budget)
     if (campaign.status === "DRAFT") {
-      // Refund the full budget back to user's wallet
-      if (budget > 0) {
-        await db
-          .update(users)
-          .set({
-            balance: sql`${users.balance} + ${budget}`,
-            updatedAt: new Date(),
-          })
-          .where(eq(users.id, user.id));
-      }
+      // Refund and delete atomically
+      await db.transaction(async (tx) => {
+        // Refund the full budget back to user's wallet
+        if (budget > 0) {
+          await tx
+            .update(users)
+            .set({
+              balance: sql`${users.balance} + ${budget}`,
+              updatedAt: new Date(),
+            })
+            .where(eq(users.id, user.id));
+        }
 
-      // Delete the draft campaign
-      await db.delete(campaigns).where(eq(campaigns.id, id));
+        // Delete the draft campaign
+        await tx.delete(campaigns).where(eq(campaigns.id, id));
+      });
 
       return NextResponse.json({
         success: true,
@@ -199,25 +202,28 @@ export async function DELETE(
 
     // For ACTIVE/PAUSED campaigns, cancel and refund remaining
     if (campaign.status === "ACTIVE" || campaign.status === "PAUSED") {
-      // Refund remaining budget (budget - spent)
-      if (refund > 0) {
-        await db
-          .update(users)
+      // Refund and update status atomically
+      await db.transaction(async (tx) => {
+        // Refund remaining budget (budget - spent)
+        if (refund > 0) {
+          await tx
+            .update(users)
+            .set({
+              balance: sql`${users.balance} + ${refund}`,
+              updatedAt: new Date(),
+            })
+            .where(eq(users.id, user.id));
+        }
+
+        // Mark campaign as completed (cancelled)
+        await tx
+          .update(campaigns)
           .set({
-            balance: sql`${users.balance} + ${refund}`,
+            status: "COMPLETED",
             updatedAt: new Date(),
           })
-          .where(eq(users.id, user.id));
-      }
-
-      // Mark campaign as completed (cancelled)
-      await db
-        .update(campaigns)
-        .set({
-          status: "COMPLETED",
-          updatedAt: new Date(),
-        })
-        .where(eq(campaigns.id, id));
+          .where(eq(campaigns.id, id));
+      });
 
       return NextResponse.json({
         success: true,

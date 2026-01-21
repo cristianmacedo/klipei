@@ -5,11 +5,12 @@ import {
   extractYouTubeVideoId,
   extractTikTokVideoId,
   generateVerificationCode,
+  videoUrlSchema,
 } from "@/lib/youtube";
 import { z } from "zod";
 
 const schema = z.object({
-  videoUrl: z.string().url(),
+  videoUrl: videoUrlSchema,
 });
 
 export async function POST(request: Request) {

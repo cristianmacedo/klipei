@@ -1,4 +1,36 @@
+import { z } from "zod";
+
 const YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3";
+
+// Allowed video hosting domains
+const ALLOWED_DOMAINS = [
+  "youtube.com",
+  "www.youtube.com",
+  "youtu.be",
+  "tiktok.com",
+  "www.tiktok.com",
+  "vm.tiktok.com",
+];
+
+/**
+ * Zod schema for validating video URLs from allowed platforms
+ */
+export const videoUrlSchema = z
+  .string()
+  .url("URL inválida")
+  .refine(
+    (url) => {
+      try {
+        const urlObj = new URL(url);
+        return ALLOWED_DOMAINS.some(
+          (d) => urlObj.hostname === d || urlObj.hostname.endsWith(`.${d}`)
+        );
+      } catch {
+        return false;
+      }
+    },
+    { message: "URL deve ser do YouTube ou TikTok" }
+  );
 
 interface VideoStatistics {
   viewCount: string;
@@ -76,9 +108,15 @@ export function detectPlatform(
   return null;
 }
 
+export interface VideoStats {
+  views: number;
+  title: string;
+  description: string;
+}
+
 export async function getYouTubeVideoStats(
   videoId: string
-): Promise<{ views: number; title: string; description: string } | null> {
+): Promise<VideoStats | null> {
   const apiKey = process.env.YOUTUBE_API_KEY;
 
   if (!apiKey) {
@@ -112,6 +150,61 @@ export async function getYouTubeVideoStats(
     console.error("Error fetching YouTube video stats:", error);
     return null;
   }
+}
+
+/**
+ * Batch fetch YouTube video statistics for multiple videos
+ * YouTube API accepts up to 50 IDs per request
+ */
+export async function getYouTubeVideosStatsBatch(
+  videoIds: string[]
+): Promise<Map<string, VideoStats>> {
+  const apiKey = process.env.YOUTUBE_API_KEY;
+  const results = new Map<string, VideoStats>();
+
+  if (!apiKey) {
+    console.error("YouTube API key not configured");
+    return results;
+  }
+
+  if (videoIds.length === 0) {
+    return results;
+  }
+
+  // YouTube API accepts up to 50 IDs per request
+  const BATCH_SIZE = 50;
+
+  try {
+    for (let i = 0; i < videoIds.length; i += BATCH_SIZE) {
+      const batch = videoIds.slice(i, i + BATCH_SIZE);
+      const ids = batch.join(",");
+
+      const response = await fetch(
+        `${YOUTUBE_API_BASE}/videos?part=statistics,snippet&id=${ids}&key=${apiKey}`
+      );
+
+      if (!response.ok) {
+        console.error("YouTube API error:", response.statusText);
+        continue;
+      }
+
+      const data: YouTubeVideoResponse = await response.json();
+
+      if (data.items) {
+        for (const video of data.items) {
+          results.set(video.id, {
+            views: parseInt(video.statistics.viewCount, 10),
+            title: video.snippet.title,
+            description: video.snippet.description,
+          });
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error fetching YouTube videos stats batch:", error);
+  }
+
+  return results;
 }
 
 export function generateVerificationCode(): string {

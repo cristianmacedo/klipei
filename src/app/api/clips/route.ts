@@ -8,13 +8,14 @@ import {
   extractTikTokVideoId,
   getYouTubeVideoStats,
   verifyOwnershipCode,
+  videoUrlSchema,
 } from "@/lib/youtube";
 import { z } from "zod";
 import { nanoid } from "nanoid";
 
 const createClipSchema = z.object({
   campaignId: z.string(),
-  videoUrl: z.string().url(),
+  videoUrl: videoUrlSchema,
   verificationCode: z.string(),
   comment: z.string().optional(),
 });

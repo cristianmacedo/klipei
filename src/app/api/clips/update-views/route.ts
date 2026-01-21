@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db, clips, campaigns, users } from "@/db";
 import { eq, sql } from "drizzle-orm";
-import { getYouTubeVideoStats } from "@/lib/youtube";
+import { getYouTubeVideosStatsBatch } from "@/lib/youtube";
 
 // This endpoint can be called by a cron job to update views
 export async function POST(request: Request) {
@@ -25,11 +25,15 @@ export async function POST(request: Request) {
     // Filter YouTube clips
     const youtubeClips = approvedClips.filter((c) => c.platform === "YOUTUBE");
 
+    // Batch fetch all video stats at once (much faster than individual requests)
+    const videoIds = youtubeClips.map((c) => c.videoId);
+    const statsMap = await getYouTubeVideosStatsBatch(videoIds);
+
     const updates = [];
 
     for (const clip of youtubeClips) {
       try {
-        const stats = await getYouTubeVideoStats(clip.videoId);
+        const stats = statsMap.get(clip.videoId);
 
         if (stats) {
           const newViews = stats.views;
@@ -56,33 +60,36 @@ export async function POST(request: Request) {
           const earningsDelta = earnings - Number(clip.earnings);
 
           if (earningsDelta > 0) {
-            // Update clip
-            await db
-              .update(clips)
-              .set({
-                currentViews: newViews,
-                earnings: String(earnings),
-                updatedAt: new Date(),
-              })
-              .where(eq(clips.id, clip.id));
+            // Use transaction to ensure atomicity of all updates
+            await db.transaction(async (tx) => {
+              // Update clip
+              await tx
+                .update(clips)
+                .set({
+                  currentViews: newViews,
+                  earnings: String(earnings),
+                  updatedAt: new Date(),
+                })
+                .where(eq(clips.id, clip.id));
 
-            // Update campaign spent
-            await db
-              .update(campaigns)
-              .set({
-                spent: sql`${campaigns.spent} + ${earningsDelta}`,
-                updatedAt: new Date(),
-              })
-              .where(eq(campaigns.id, clip.campaignId));
+              // Update campaign spent
+              await tx
+                .update(campaigns)
+                .set({
+                  spent: sql`${campaigns.spent} + ${earningsDelta}`,
+                  updatedAt: new Date(),
+                })
+                .where(eq(campaigns.id, clip.campaignId));
 
-            // Update clipper balance
-            await db
-              .update(users)
-              .set({
-                balance: sql`${users.balance} + ${earningsDelta}`,
-                updatedAt: new Date(),
-              })
-              .where(eq(users.id, clip.clipperId));
+              // Update clipper balance
+              await tx
+                .update(users)
+                .set({
+                  balance: sql`${users.balance} + ${earningsDelta}`,
+                  updatedAt: new Date(),
+                })
+                .where(eq(users.id, clip.clipperId));
+            });
 
             updates.push({
               clipId: clip.id,

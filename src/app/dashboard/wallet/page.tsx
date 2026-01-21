@@ -174,7 +174,7 @@ export default function WalletPage() {
         ...data.deposits.map((d) => ({
           id: `d-${d.id}`,
           type: "deposit" as const,
-          description: "Depósito via PIX",
+          description: "Depósito via Stripe",
           amount: d.amount,
           date: new Date(d.createdAt).toLocaleDateString("pt-BR"),
           status:

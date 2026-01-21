@@ -12,7 +12,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { RoleSwitcher } from "@/components/role-switcher";
 import type { User } from "@/db/schema";
 
 interface DashboardNavProps {
@@ -23,10 +22,6 @@ export function DashboardNav({ user }: DashboardNavProps) {
   const pathname = usePathname();
   const router = useRouter();
 
-  // Determine active mode based on current path
-  const isCreatorMode = pathname.includes("/creator") || pathname === "/campaigns/new";
-  const isClipperMode = pathname.includes("/clipper");
-
   const handleLogout = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -34,33 +29,26 @@ export function DashboardNav({ user }: DashboardNavProps) {
     router.refresh();
   };
 
-  // Show nav items based on current mode (path), not stored role
-  const creatorNavItems = [
-    { href: "/dashboard/creator", label: "Dashboard" },
-    { href: "/dashboard/creator/campaigns", label: "Campanhas" },
-    { href: "/dashboard/creator/submissions", label: "Submissões" },
+  const navItems = [
+    { href: "/dashboard", label: "Dashboard", exact: true },
+    { href: "/dashboard/campaigns", label: "Campanhas" },
+    { href: "/dashboard/submissions", label: "Submissões" },
+    { href: "/dashboard/wallet", label: "Carteira" },
   ];
 
-  const clipperNavItems = [
-    { href: "/dashboard/clipper", label: "Dashboard" },
-    { href: "/campaigns", label: "Campanhas" },
-    { href: "/dashboard/clipper/submissions", label: "Minhas Submissões" },
-    { href: "/dashboard/clipper/earnings", label: "Ganhos" },
-  ];
-
-  const navItems = isCreatorMode ? creatorNavItems : clipperNavItems;
+  const isActive = (href: string, exact?: boolean) => {
+    if (exact) return pathname === href;
+    return pathname.startsWith(href);
+  };
 
   return (
     <header className="border-b border-zinc-800 bg-zinc-900/50 backdrop-blur-sm sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          {/* Logo + Mode Switcher */}
-          <div className="flex items-center gap-4">
-            <Link href="/dashboard" className="text-xl font-bold text-white">
-              Klipei
-            </Link>
-            <RoleSwitcher currentRole={user.role} />
-          </div>
+          {/* Logo */}
+          <Link href="/dashboard" className="text-xl font-bold text-white">
+            Klipei
+          </Link>
 
           {/* Navigation */}
           <nav className="hidden md:flex items-center gap-6">
@@ -69,7 +57,7 @@ export function DashboardNav({ user }: DashboardNavProps) {
                 key={item.href}
                 href={item.href}
                 className={`text-sm transition-colors ${
-                  pathname === item.href
+                  isActive(item.href, item.exact)
                     ? "text-emerald-400"
                     : "text-zinc-400 hover:text-white"
                 }`}
@@ -79,18 +67,16 @@ export function DashboardNav({ user }: DashboardNavProps) {
             ))}
           </nav>
 
-          {/* User Menu */}
+          {/* Actions */}
           <div className="flex items-center gap-4">
-            {isCreatorMode && (
-              <Link href="/campaigns/new">
-                <Button
-                  size="sm"
-                  className="bg-emerald-600 hover:bg-emerald-700"
-                >
-                  Nova Campanha
-                </Button>
-              </Link>
-            )}
+            <Link href="/dashboard/campaigns/new">
+              <Button
+                size="sm"
+                className="bg-emerald-600 hover:bg-emerald-700"
+              >
+                Nova Campanha
+              </Button>
+            </Link>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

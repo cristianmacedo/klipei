@@ -42,9 +42,7 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
     });
   }
 
-  const isClipper = dbUser?.role === "CLIPPER";
-  const isCreator =
-    dbUser?.role === "CREATOR" && dbUser.id === campaign.creatorId;
+  const isOwner = dbUser?.id === campaign.creatorId;
   const budgetRemaining = Number(campaign.budget) - Number(campaign.spent);
 
   return (
@@ -90,7 +88,7 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
 
       <main className="container mx-auto px-4 py-8">
         <Link
-          href="/campaigns"
+          href="/dashboard/campaigns"
           className="text-zinc-400 hover:text-white text-sm mb-6 inline-block"
         >
           ← Voltar para campanhas
@@ -257,18 +255,14 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
                         </Button>
                       </Link>
                     </div>
-                  ) : isClipper ? (
-                    <SubmitClipButton campaignId={campaign.id} />
-                  ) : isCreator ? (
-                    <Link href={`/dashboard/creator/campaigns/${campaign.id}`}>
+                  ) : isOwner ? (
+                    <Link href={`/dashboard/campaigns/${campaign.id}`}>
                       <Button className="w-full" variant="outline">
                         Gerenciar Campanha
                       </Button>
                     </Link>
                   ) : (
-                    <p className="text-zinc-400 text-center text-sm">
-                      Apenas clippers podem submeter conteúdo
-                    </p>
+                    <SubmitClipButton campaignId={campaign.id} />
                   )}
                 </CardContent>
               </Card>

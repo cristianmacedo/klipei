@@ -46,7 +46,7 @@ export default async function CampaignDetailPage({
   }
 
   if (campaign.creatorId !== user.id) {
-    redirect("/dashboard");
+    redirect("/dashboard/campaigns");
   }
 
   // Get creator's balance
@@ -54,7 +54,6 @@ export default async function CampaignDetailPage({
     where: eq(users.id, user.id),
   });
 
-  const creatorBalance = Number(creator?.balance || 0);
   const budgetRemaining = Number(campaign.budget) - Number(campaign.spent);
   const pendingClips = campaign.clips.filter((c) => c.status === "PENDING");
   const approvedClips = campaign.clips.filter((c) => c.status === "APPROVED");
@@ -68,7 +67,7 @@ export default async function CampaignDetailPage({
       <div className="flex items-start justify-between gap-4">
         <div>
           <Link
-            href="/dashboard/creator/campaigns"
+            href="/dashboard/campaigns?tab=minhas"
             className="text-zinc-400 hover:text-white text-sm"
           >
             ← Voltar para campanhas
@@ -83,10 +82,10 @@ export default async function CampaignDetailPage({
                 campaign.status === "ACTIVE"
                   ? "bg-emerald-600/20 text-emerald-400"
                   : campaign.status === "PAUSED"
-                  ? "bg-yellow-600/20 text-yellow-400"
-                  : campaign.status === "DRAFT"
-                  ? "bg-zinc-600/20 text-zinc-400"
-                  : "bg-red-600/20 text-red-400"
+                    ? "bg-yellow-600/20 text-yellow-400"
+                    : campaign.status === "DRAFT"
+                      ? "bg-zinc-600/20 text-zinc-400"
+                      : "bg-red-600/20 text-red-400"
               } border-0`}
             >
               {campaign.status}

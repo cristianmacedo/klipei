@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -13,13 +14,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { DepositButton } from "@/components/deposit-button";
 
 interface UserData {
   id: string;
   name: string | null;
   email: string;
-  role: string;
   pixKey: string | null;
   avatarUrl: string | null;
   balance: string;
@@ -32,20 +31,6 @@ export default function SettingsPage() {
   const [name, setName] = useState("");
   const [pixKey, setPixKey] = useState("");
   const router = useRouter();
-  const searchParams = useSearchParams();
-
-  useEffect(() => {
-    // Check for deposit success/cancelled params
-    const depositStatus = searchParams.get("deposit");
-    if (depositStatus === "success") {
-      toast.success("Depósito realizado com sucesso!");
-      // Clean up URL
-      router.replace("/dashboard/settings");
-    } else if (depositStatus === "cancelled") {
-      toast.error("Depósito cancelado");
-      router.replace("/dashboard/settings");
-    }
-  }, [searchParams, router]);
 
   useEffect(() => {
     fetchUser();
@@ -106,26 +91,24 @@ export default function SettingsPage() {
     <div className="space-y-6 max-w-2xl">
       <div>
         <h1 className="text-3xl font-bold text-white">Configurações</h1>
-        <p className="text-zinc-400">Gerencie seu perfil e carteira</p>
+        <p className="text-zinc-400">Gerencie seu perfil</p>
       </div>
 
-      {/* Wallet Card */}
+      {/* Quick Link to Wallet */}
       <Card className="bg-zinc-800 border-zinc-700">
-        <CardHeader>
-          <CardTitle className="text-white">Carteira</CardTitle>
-          <CardDescription className="text-zinc-400">
-            Seu saldo disponível para criar campanhas ou sacar
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-zinc-400">Saldo disponível</p>
-              <p className="text-3xl font-bold text-emerald-400">
-                R$ {Number(user?.balance || 0).toFixed(2)}
+              <p className="text-white font-medium">Carteira</p>
+              <p className="text-sm text-zinc-400">
+                Saldo: R$ {Number(user?.balance || 0).toFixed(2)}
               </p>
             </div>
-            <DepositButton />
+            <Link href="/dashboard/wallet">
+              <Button variant="outline" className="border-zinc-600">
+                Gerenciar Carteira
+              </Button>
+            </Link>
           </div>
         </CardContent>
       </Card>

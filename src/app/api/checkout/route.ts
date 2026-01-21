@@ -44,8 +44,8 @@ export async function POST(request: Request) {
       customerId: stripeCustomerId,
       depositId: deposit.id,
       amount,
-      successUrl: `${appUrl}/dashboard/settings?deposit=success`,
-      cancelUrl: `${appUrl}/dashboard/settings?deposit=cancelled`,
+      successUrl: `${appUrl}/dashboard/wallet?deposit=success`,
+      cancelUrl: `${appUrl}/dashboard/wallet?deposit=cancelled`,
     });
 
     // Update deposit with session ID

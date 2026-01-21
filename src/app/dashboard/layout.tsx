@@ -20,12 +20,23 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  const dbUser = await db.query.users.findFirst({
+  // Get or create user in database
+  let dbUser = await db.query.users.findFirst({
     where: eq(users.id, user.id),
   });
 
-  if (!dbUser || !dbUser.role) {
-    redirect("/onboarding");
+  // If user doesn't exist in DB, create them
+  if (!dbUser) {
+    const [newUser] = await db
+      .insert(users)
+      .values({
+        id: user.id,
+        email: user.email!,
+        name: user.user_metadata?.full_name || user.user_metadata?.name || null,
+        avatarUrl: user.user_metadata?.avatar_url || null,
+      })
+      .returning();
+    dbUser = newUser;
   }
 
   return (

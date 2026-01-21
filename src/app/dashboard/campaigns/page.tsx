@@ -1,11 +1,12 @@
 export const dynamic = "force-dynamic";
 
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { db, campaigns } from "@/db";
 import { eq, desc } from "drizzle-orm";
 import { CampaignCard } from "@/components/dashboard/campaign-card";
-import { CreateCampaignModal } from "@/components/dashboard/create-campaign-modal";
-import { users } from "@/db";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 
 export default async function CampaignsPage() {
   const supabase = await createClient();
@@ -14,13 +15,6 @@ export default async function CampaignsPage() {
   } = await supabase.auth.getUser();
 
   if (!user) return null;
-
-  // Get user balance for the modal
-  const dbUser = await db.query.users.findFirst({
-    where: eq(users.id, user.id),
-  });
-
-  const userBalance = Number(dbUser?.balance || 0);
 
   // Get user's campaigns
   const myCampaigns = await db.query.campaigns.findMany({
@@ -66,7 +60,12 @@ export default async function CampaignsPage() {
             Gerencie suas campanhas e acompanhe o desempenho.
           </p>
         </div>
-        <CreateCampaignModal userBalance={userBalance} />
+        <Link href="/dashboard/campaigns/new">
+          <Button>
+            <Plus className="mr-1.5 h-4 w-4" />
+            Nova Campanha
+          </Button>
+        </Link>
       </div>
 
       {/* Stats Summary */}
@@ -91,7 +90,12 @@ export default async function CampaignsPage() {
           <p className="text-muted-foreground mb-4">
             Você ainda não criou nenhuma campanha.
           </p>
-          <CreateCampaignModal userBalance={userBalance} />
+          <Link href="/dashboard/campaigns/new">
+            <Button>
+              <Plus className="mr-1.5 h-4 w-4" />
+              Nova Campanha
+            </Button>
+          </Link>
         </div>
       ) : (
         <div className="space-y-8">

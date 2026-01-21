@@ -8,8 +8,9 @@ import { StatCard } from "@/components/dashboard/stat-card";
 import { CampaignCard } from "@/components/dashboard/campaign-card";
 import { ViewsChart } from "@/components/dashboard/views-chart";
 import { WalletCard } from "@/components/dashboard/wallet-card";
-import { CreateCampaignModal } from "@/components/dashboard/create-campaign-modal";
 import { SubmitClipModal } from "@/components/dashboard/submit-clip-modal";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -101,7 +102,12 @@ export default async function DashboardPage() {
         </div>
         <div className="flex gap-3">
           <SubmitClipModal />
-          <CreateCampaignModal userBalance={balance} />
+          <Link href="/dashboard/campaigns/new">
+            <Button>
+              <Plus className="mr-1.5 h-4 w-4" />
+              Nova Campanha
+            </Button>
+          </Link>
         </div>
       </div>
 
@@ -175,7 +181,12 @@ export default async function DashboardPage() {
               <p className="text-muted-foreground mb-4">
                 Você ainda não criou nenhuma campanha.
               </p>
-              <CreateCampaignModal userBalance={balance} />
+              <Link href="/dashboard/campaigns/new">
+                <Button>
+                  <Plus className="mr-1.5 h-4 w-4" />
+                  Nova Campanha
+                </Button>
+              </Link>
             </div>
           ) : (
             <div className="space-y-4">

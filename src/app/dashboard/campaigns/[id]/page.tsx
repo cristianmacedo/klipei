@@ -11,7 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CampaignActions } from "@/components/campaign-actions";
 import { SubmissionsList } from "@/components/dashboard/submissions-list";
-import { Eye, Users, ArrowLeft } from "lucide-react";
+import { Eye, Users, ArrowLeft, Pencil } from "lucide-react";
 
 interface CampaignDetailPageProps {
   params: Promise<{ id: string }>;
@@ -105,7 +105,15 @@ export default async function CampaignDetailPage({
           <p className="mt-1 text-muted-foreground">{campaign.type}</p>
         </div>
 
-        <CampaignActions campaign={campaign} />
+        <div className="flex items-center gap-2">
+          <Link href={`/dashboard/campaigns/${id}/edit`}>
+            <Button variant="outline">
+              <Pencil className="mr-1.5 h-4 w-4" />
+              Editar
+            </Button>
+          </Link>
+          <CampaignActions campaign={campaign} />
+        </div>
       </div>
 
       {/* Draft Alert */}

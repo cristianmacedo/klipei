@@ -24,7 +24,7 @@ const createCampaignSchema = z.object({
     .min(1),
   budget: z.number().min(MINIMUM_BUDGET),
   ratePerMil: z.number().min(MINIMUM_RATE_PER_MIL).max(MAXIMUM_RATE_PER_MIL),
-  maxPayoutPerClip: z.number().min(0).optional(),
+  maxPayoutPerClip: z.number().min(1),
   requirements: z.array(z.string()).optional(),
   instructions: z.string().optional(),
   sourceContent: z.string().optional(),

@@ -97,6 +97,13 @@ export function CampaignActions({ campaign }: CampaignActionsProps) {
 
         <DropdownMenuItem
           className="text-zinc-300 focus:bg-zinc-700 focus:text-white cursor-pointer"
+          onClick={() => router.push(`/dashboard/campaigns/${campaign.id}/edit`)}
+        >
+          Editar campanha
+        </DropdownMenuItem>
+
+        <DropdownMenuItem
+          className="text-zinc-300 focus:bg-zinc-700 focus:text-white cursor-pointer"
           onClick={() => router.push(`/campaigns/${campaign.id}`)}
         >
           Ver página pública

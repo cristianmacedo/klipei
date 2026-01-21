@@ -30,7 +30,7 @@ export default async function CampaignsPage() {
               <Link href="/login">
                 <Button
                   variant="ghost"
-                  className="text-zinc-400 hover:text-white"
+                  className="text-zinc-400 hover:bg-zinc-800 hover:text-white"
                 >
                   Entrar
                 </Button>

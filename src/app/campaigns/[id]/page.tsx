@@ -59,7 +59,7 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
                 <Link href="/dashboard">
                   <Button
                     variant="ghost"
-                    className="text-zinc-400 hover:text-white"
+                    className="text-zinc-400 hover:bg-zinc-800 hover:text-white"
                   >
                     Dashboard
                   </Button>
@@ -69,7 +69,7 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
                   <Link href="/login">
                     <Button
                       variant="ghost"
-                      className="text-zinc-400 hover:text-white"
+                      className="text-zinc-400 hover:bg-zinc-800 hover:text-white"
                     >
                       Entrar
                     </Button>
@@ -257,7 +257,7 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
                     </div>
                   ) : isOwner ? (
                     <Link href={`/dashboard/campaigns/${campaign.id}`}>
-                      <Button className="w-full" variant="outline">
+                      <Button className="w-full bg-transparent border-zinc-600 text-zinc-300 hover:bg-zinc-700 hover:text-white" variant="outline">
                         Gerenciar Campanha
                       </Button>
                     </Link>

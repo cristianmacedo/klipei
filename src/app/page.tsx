@@ -28,7 +28,7 @@ export default async function Home() {
             ) : (
               <>
                 <Link href="/login">
-                  <Button variant="ghost" className="text-zinc-300 hover:text-white">
+                  <Button variant="ghost" className="text-zinc-300 hover:bg-zinc-800 hover:text-white">
                     Entrar
                   </Button>
                 </Link>
@@ -66,7 +66,7 @@ export default async function Home() {
               <Button
                 size="lg"
                 variant="outline"
-                className="text-lg px-8 border-zinc-600 text-zinc-300 hover:bg-zinc-800"
+                className="text-lg px-8 bg-transparent border-zinc-600 text-zinc-300 hover:bg-zinc-700 hover:text-white"
               >
                 {isLoggedIn ? "Ver campanhas" : "Sou clipper"}
               </Button>

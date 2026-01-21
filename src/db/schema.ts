@@ -120,6 +120,8 @@ export const clips = pgTable(
     ),
     index("clips_clipper_id_idx").on(table.clipperId),
     index("clips_status_idx").on(table.status),
+    // Composite index for common query: get clips by campaign and status
+    index("clips_campaign_status_idx").on(table.campaignId, table.status),
   ]
 );
 

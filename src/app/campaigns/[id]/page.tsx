@@ -9,11 +9,33 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { SubmitClipButton } from "@/components/submit-clip-button";
+import { SubmitClipModal } from "@/components/dashboard/submit-clip-modal";
+import { Scissors, ArrowLeft } from "lucide-react";
 
 interface CampaignPageProps {
   params: Promise<{ id: string }>;
 }
+
+const statusColors = {
+  ACTIVE: "bg-success/20 text-success",
+  PAUSED: "bg-warning/20 text-warning",
+  COMPLETED: "bg-muted text-muted-foreground",
+  DRAFT: "bg-muted text-muted-foreground",
+};
+
+const statusLabels = {
+  ACTIVE: "Ativa",
+  PAUSED: "Pausada",
+  COMPLETED: "Concluída",
+  DRAFT: "Rascunho",
+};
+
+const platformColors: Record<string, string> = {
+  TIKTOK: "bg-[#ff0050]/20 text-[#ff0050]",
+  YOUTUBE: "bg-[#ff0000]/20 text-[#ff4444]",
+  INSTAGRAM: "bg-[#e4405f]/20 text-[#e4405f]",
+  TWITTER: "bg-[#1da1f2]/20 text-[#1da1f2]",
+};
 
 export default async function CampaignPage({ params }: CampaignPageProps) {
   const { id } = await params;
@@ -46,38 +68,29 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
   const budgetRemaining = Number(campaign.budget) - Number(campaign.spent);
 
   return (
-    <div className="min-h-screen bg-zinc-900">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-zinc-800 bg-zinc-900/50 backdrop-blur-sm sticky top-0 z-50">
+      <header className="border-b border-border bg-background/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
-            <Link href="/" className="text-xl font-bold text-white">
-              Klipei
+            <Link href="/" className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+                <Scissors className="h-4 w-4 text-primary-foreground" />
+              </div>
+              <span className="text-xl font-bold tracking-tight">Klipei</span>
             </Link>
             <div className="flex items-center gap-4">
               {user ? (
                 <Link href="/dashboard">
-                  <Button
-                    variant="ghost"
-                    className="text-zinc-400 hover:bg-zinc-800 hover:text-white"
-                  >
-                    Dashboard
-                  </Button>
+                  <Button variant="ghost">Dashboard</Button>
                 </Link>
               ) : (
                 <>
                   <Link href="/login">
-                    <Button
-                      variant="ghost"
-                      className="text-zinc-400 hover:bg-zinc-800 hover:text-white"
-                    >
-                      Entrar
-                    </Button>
+                    <Button variant="ghost">Entrar</Button>
                   </Link>
                   <Link href="/signup">
-                    <Button className="bg-emerald-600 hover:bg-emerald-700">
-                      Criar conta
-                    </Button>
+                    <Button>Criar conta</Button>
                   </Link>
                 </>
               )}
@@ -88,10 +101,11 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
 
       <main className="container mx-auto px-4 py-8">
         <Link
-          href="/dashboard/campaigns"
-          className="text-zinc-400 hover:text-white text-sm mb-6 inline-block"
+          href="/dashboard/explore"
+          className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-6"
         >
-          ← Voltar para campanhas
+          <ArrowLeft className="mr-1.5 h-4 w-4" />
+          Voltar para campanhas
         </Link>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -99,43 +113,36 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
           <div className="lg:col-span-2 space-y-6">
             <div>
               <div className="flex items-start justify-between gap-4 mb-2">
-                <h1 className="text-3xl font-bold text-white">
+                <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">
                   {campaign.title}
                 </h1>
-                <Badge
-                  variant="secondary"
-                  className={`${
-                    campaign.status === "ACTIVE"
-                      ? "bg-emerald-600/20 text-emerald-400"
-                      : "bg-zinc-600/20 text-zinc-400"
-                  } border-0`}
-                >
-                  {campaign.status}
+                <Badge variant="secondary" className={statusColors[campaign.status]}>
+                  {statusLabels[campaign.status]}
                 </Badge>
               </div>
-              <p className="text-zinc-400">
+              <p className="text-muted-foreground">
                 por {campaign.creator.name || campaign.creator.email}
               </p>
             </div>
 
-            <Card className="bg-zinc-800 border-zinc-700">
+            <Card>
               <CardHeader>
-                <CardTitle className="text-white">Descrição</CardTitle>
+                <CardTitle>Descrição</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-zinc-300 whitespace-pre-wrap">
+                <p className="text-muted-foreground whitespace-pre-wrap">
                   {campaign.description}
                 </p>
               </CardContent>
             </Card>
 
             {campaign.instructions && (
-              <Card className="bg-zinc-800 border-zinc-700">
+              <Card>
                 <CardHeader>
-                  <CardTitle className="text-white">Instruções</CardTitle>
+                  <CardTitle>Instruções</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-zinc-300 whitespace-pre-wrap">
+                  <p className="text-muted-foreground whitespace-pre-wrap">
                     {campaign.instructions}
                   </p>
                 </CardContent>
@@ -143,12 +150,12 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
             )}
 
             {campaign.sourceContent && (
-              <Card className="bg-zinc-800 border-zinc-700">
+              <Card>
                 <CardHeader>
-                  <CardTitle className="text-white">Conteúdo Fonte</CardTitle>
+                  <CardTitle>Conteúdo Fonte</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-zinc-300 whitespace-pre-wrap">
+                  <p className="text-muted-foreground whitespace-pre-wrap">
                     {campaign.sourceContent}
                   </p>
                 </CardContent>
@@ -156,18 +163,14 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
             )}
 
             {campaign.requirements.length > 0 && (
-              <Card className="bg-zinc-800 border-zinc-700">
+              <Card>
                 <CardHeader>
-                  <CardTitle className="text-white">Requisitos</CardTitle>
+                  <CardTitle>Requisitos</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-wrap gap-2">
                     {campaign.requirements.map((req, i) => (
-                      <Badge
-                        key={i}
-                        variant="secondary"
-                        className="bg-zinc-700 text-zinc-300"
-                      >
+                      <Badge key={i} variant="secondary">
                         {req}
                       </Badge>
                     ))}
@@ -179,56 +182,54 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            <Card className="bg-zinc-800 border-zinc-700">
+            <Card>
               <CardHeader>
-                <CardTitle className="text-white">Recompensa</CardTitle>
+                <CardTitle>Recompensa</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <p className="text-4xl font-bold text-emerald-400">
+                  <p className="text-4xl font-bold text-primary">
                     R$ {Number(campaign.ratePerMil).toFixed(2)}
                   </p>
-                  <p className="text-zinc-500">por 1.000 views</p>
+                  <p className="text-muted-foreground">por 1.000 views</p>
                 </div>
 
                 {campaign.maxPayoutPerClip && (
-                  <div className="text-sm text-zinc-400">
+                  <div className="text-sm text-muted-foreground">
                     Máximo por clip: R${" "}
                     {Number(campaign.maxPayoutPerClip).toFixed(2)}
                   </div>
                 )}
 
-                <Separator className="bg-zinc-700" />
+                <Separator />
 
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-zinc-400">Tipo</span>
-                    <span className="text-white">{campaign.type}</span>
+                    <span className="text-muted-foreground">Tipo</span>
+                    <span>{campaign.type}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-zinc-400">Orçamento restante</span>
-                    <span className="text-white">
-                      R$ {budgetRemaining.toFixed(2)}
-                    </span>
+                    <span className="text-muted-foreground">Orçamento restante</span>
+                    <span>R$ {budgetRemaining.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-zinc-400">Clips submetidos</span>
-                    <span className="text-white">{campaign.clips.length}</span>
+                    <span className="text-muted-foreground">Clips submetidos</span>
+                    <span>{campaign.clips.length}</span>
                   </div>
                 </div>
 
-                <Separator className="bg-zinc-700" />
+                <Separator />
 
                 <div>
-                  <p className="text-sm text-zinc-400 mb-2">
+                  <p className="text-sm text-muted-foreground mb-2">
                     Plataformas aceitas
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {campaign.platforms.map((platform) => (
                       <Badge
                         key={platform}
-                        variant="outline"
-                        className="border-zinc-600 text-zinc-400"
+                        variant="secondary"
+                        className={platformColors[platform]}
                       >
                         {platform}
                       </Badge>
@@ -240,29 +241,31 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
 
             {/* Actions */}
             {campaign.status === "ACTIVE" && (
-              <Card className="bg-zinc-800 border-zinc-700">
+              <Card>
                 <CardContent className="pt-6">
                   {!user ? (
                     <div className="text-center">
-                      <p className="text-zinc-400 mb-4">
+                      <p className="text-muted-foreground mb-4">
                         Faça login para participar desta campanha
                       </p>
                       <Link
                         href={`/login?redirectTo=/campaigns/${campaign.id}`}
                       >
-                        <Button className="w-full bg-emerald-600 hover:bg-emerald-700">
-                          Entrar
-                        </Button>
+                        <Button className="w-full">Entrar</Button>
                       </Link>
                     </div>
                   ) : isOwner ? (
                     <Link href={`/dashboard/campaigns/${campaign.id}`}>
-                      <Button className="w-full bg-transparent border-zinc-600 text-zinc-300 hover:bg-zinc-700 hover:text-white" variant="outline">
+                      <Button className="w-full" variant="outline">
                         Gerenciar Campanha
                       </Button>
                     </Link>
                   ) : (
-                    <SubmitClipButton campaignId={campaign.id} />
+                    <SubmitClipModal
+                      campaignId={campaign.id}
+                      campaignTitle={campaign.title}
+                      allowedPlatforms={campaign.platforms}
+                    />
                   )}
                 </CardContent>
               </Card>

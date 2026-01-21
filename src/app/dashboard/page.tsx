@@ -4,10 +4,12 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { db, users, campaigns, clips } from "@/db";
 import { eq, desc } from "drizzle-orm";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { MINIMUM_WITHDRAWAL_AMOUNT } from "@/types";
+import { StatCard } from "@/components/dashboard/stat-card";
+import { CampaignCard } from "@/components/dashboard/campaign-card";
+import { ViewsChart } from "@/components/dashboard/views-chart";
+import { WalletCard } from "@/components/dashboard/wallet-card";
+import { CreateCampaignModal } from "@/components/dashboard/create-campaign-modal";
+import { SubmitClipModal } from "@/components/dashboard/submit-clip-modal";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -15,7 +17,6 @@ export default async function DashboardPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // User check is done in layout, but TypeScript needs this
   if (!user) return null;
 
   const dbUser = await db.query.users.findFirst({
@@ -37,12 +38,16 @@ export default async function DashboardPage() {
   const userClips = await db.query.clips.findMany({
     where: eq(clips.clipperId, user.id),
     with: {
-      campaign: true,
+      campaign: {
+        with: {
+          creator: true,
+        },
+      },
     },
     orderBy: [desc(clips.submittedAt)],
   });
 
-  // Stats - as creator
+  // Stats
   const activeCampaignsCount = userCampaigns.filter(
     (c) => c.status === "ACTIVE"
   ).length;
@@ -50,250 +55,205 @@ export default async function DashboardPage() {
     .flatMap((c) => c.clips)
     .filter((c) => c.status === "PENDING").length;
 
-  // Stats - as clipper
   const pendingSubmissionsAsClipper = userClips.filter(
     (c) => c.status === "PENDING"
   ).length;
+
+  const totalViews = userClips.reduce((acc, c) => acc + c.currentViews, 0);
   const totalEarnings = userClips.reduce(
     (acc, c) => acc + Number(c.earnings),
     0
   );
+  const pendingEarnings = userClips
+    .filter((c) => c.status === "PENDING")
+    .reduce((acc, c) => acc + Number(c.earnings), 0);
+
   const balance = Number(dbUser.balance);
 
-  // Recent submissions (as clipper)
+  // Recent data
+  const recentCampaigns = userCampaigns.slice(0, 2);
   const recentClips = userClips.slice(0, 3);
 
-  // Recent campaigns (as creator)
-  const recentCampaigns = userCampaigns.slice(0, 3);
+  // Prepare campaign cards data
+  const campaignCardsData = recentCampaigns.map((campaign) => ({
+    id: campaign.id,
+    title: campaign.title,
+    cpm: Number(campaign.ratePerMil),
+    budget: Number(campaign.budget),
+    spent: Number(campaign.spent),
+    views: campaign.clips.reduce((acc, c) => acc + c.currentViews, 0),
+    clippers: new Set(campaign.clips.map((c) => c.clipperId)).size,
+    platforms: campaign.platforms,
+    status: campaign.status,
+  }));
 
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-white">Dashboard</h1>
-        <p className="text-zinc-400">
-          Bem-vindo de volta, {dbUser.name || dbUser.email}!
-        </p>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">
+            Dashboard
+          </h1>
+          <p className="mt-1 text-muted-foreground">
+            Bem-vindo de volta, {dbUser.name || dbUser.email}!
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <SubmitClipModal />
+          <CreateCampaignModal userBalance={balance} />
+        </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-zinc-800 border-zinc-700">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">
-              Campanhas Ativas
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-white">
-              {activeCampaignsCount}
-            </p>
-            <p className="text-xs text-zinc-500">
-              {pendingSubmissionsAsCreator} submissões pendentes
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-zinc-800 border-zinc-700">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">
-              Clips Submetidos
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-white">{userClips.length}</p>
-            <p className="text-xs text-zinc-500">
-              {pendingSubmissionsAsClipper} aguardando revisão
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-zinc-800 border-zinc-700">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">
-              Ganhos Totais
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-emerald-400">
-              R$ {totalEarnings.toFixed(2)}
-            </p>
-            <p className="text-xs text-zinc-500">desde o início</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-zinc-800 border-zinc-700">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">
-              Saldo Disponível
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-white">
-              R$ {balance.toFixed(2)}
-            </p>
-            {balance >= MINIMUM_WITHDRAWAL_AMOUNT ? (
-              <Link href="/dashboard/wallet">
-                <Button
-                  size="sm"
-                  variant="link"
-                  className="text-emerald-400 p-0 h-auto"
-                >
-                  Sacar →
-                </Button>
-              </Link>
-            ) : (
-              <p className="text-xs text-zinc-500">
-                Mínimo R$ {MINIMUM_WITHDRAWAL_AMOUNT} para saque
-              </p>
-            )}
-          </CardContent>
-        </Card>
+      {/* Stats */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          title="Views totais"
+          value={
+            totalViews >= 1000
+              ? `${(totalViews / 1000).toFixed(1)}k`
+              : String(totalViews)
+          }
+          change={`${userClips.length} clips submetidos`}
+          changeType="neutral"
+          icon="eye"
+          iconColor="text-primary"
+        />
+        <StatCard
+          title="Ganhos totais"
+          value={`R$ ${totalEarnings.toFixed(2)}`}
+          change={
+            pendingEarnings > 0
+              ? `R$ ${pendingEarnings.toFixed(2)} pendentes`
+              : "de clips aprovados"
+          }
+          changeType={pendingEarnings > 0 ? "neutral" : "positive"}
+          icon="trending-up"
+          iconColor="text-success"
+        />
+        <StatCard
+          title="Clips ativos"
+          value={String(userClips.length)}
+          change={`${pendingSubmissionsAsClipper} aguardando aprovação`}
+          changeType="neutral"
+          icon="film"
+          iconColor="text-accent"
+        />
+        <StatCard
+          title="Campanhas ativas"
+          value={String(activeCampaignsCount)}
+          change={`${pendingSubmissionsAsCreator} submissões pendentes`}
+          changeType="neutral"
+          icon="megaphone"
+          iconColor="text-chart-4"
+        />
       </div>
 
-      {/* Two Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Chart and Wallet */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <ViewsChart totalViews={totalViews} totalEarnings={totalEarnings} />
+        </div>
+        <WalletCard balance={balance} pendingEarnings={pendingEarnings} />
+      </div>
+
+      {/* Campaigns and Recent Activity */}
+      <div className="grid gap-8 lg:grid-cols-2">
         {/* My Campaigns */}
-        <Card className="bg-zinc-800 border-zinc-700">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-white">Minhas Campanhas</CardTitle>
-            <Link href="/dashboard/campaigns?tab=minhas">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-zinc-400 hover:text-white"
-              >
-                Ver todas
-              </Button>
+        <div>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Minhas campanhas</h2>
+            <Link
+              href="/dashboard/campaigns"
+              className="text-sm text-primary hover:underline"
+            >
+              Ver todas
             </Link>
-          </CardHeader>
-          <CardContent>
-            {recentCampaigns.length === 0 ? (
-              <div className="text-center py-6">
-                <p className="text-zinc-500 mb-4">
-                  Você ainda não criou nenhuma campanha.
-                </p>
-                <Link href="/dashboard/campaigns/new">
-                  <Button
-                    size="sm"
-                    className="bg-emerald-600 hover:bg-emerald-700"
-                  >
-                    Criar Campanha
-                  </Button>
-                </Link>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {recentCampaigns.map((campaign) => (
-                  <Link
-                    key={campaign.id}
-                    href={`/dashboard/campaigns/${campaign.id}`}
-                    className="block p-3 rounded-lg bg-zinc-700/50 hover:bg-zinc-700 transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white font-medium truncate">
-                          {campaign.title}
-                        </p>
-                        <p className="text-xs text-zinc-400">
-                          {campaign.clips.length} submissões
-                        </p>
-                      </div>
-                      <Badge
-                        variant="secondary"
-                        className={`ml-2 ${
-                          campaign.status === "ACTIVE"
-                            ? "bg-emerald-600/20 text-emerald-400"
-                            : campaign.status === "PAUSED"
-                              ? "bg-yellow-600/20 text-yellow-400"
-                              : "bg-zinc-600/20 text-zinc-400"
-                        } border-0`}
-                      >
-                        {campaign.status}
-                      </Badge>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+          </div>
+          {campaignCardsData.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border p-8 text-center">
+              <p className="text-muted-foreground mb-4">
+                Você ainda não criou nenhuma campanha.
+              </p>
+              <CreateCampaignModal userBalance={balance} />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {campaignCardsData.map((campaign) => (
+                <CampaignCard key={campaign.id} {...campaign} />
+              ))}
+            </div>
+          )}
+        </div>
 
-        {/* My Submissions */}
-        <Card className="bg-zinc-800 border-zinc-700">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-white">Minhas Submissões</CardTitle>
-            <Link href="/dashboard/submissions?tab=enviadas">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-zinc-400 hover:text-white"
-              >
-                Ver todas
-              </Button>
+        {/* Recent Submissions */}
+        <div>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Atividade recente</h2>
+            <Link
+              href="/dashboard/submissions"
+              className="text-sm text-primary hover:underline"
+            >
+              Ver todas
             </Link>
-          </CardHeader>
-          <CardContent>
-            {recentClips.length === 0 ? (
-              <div className="text-center py-6">
-                <p className="text-zinc-500 mb-4">
-                  Você ainda não submeteu nenhum clip.
-                </p>
-                <Link href="/dashboard/campaigns">
-                  <Button
-                    size="sm"
-                    className="bg-emerald-600 hover:bg-emerald-700"
-                  >
-                    Explorar Campanhas
-                  </Button>
-                </Link>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {recentClips.map((clip) => (
-                  <div
-                    key={clip.id}
-                    className="p-3 rounded-lg bg-zinc-700/50"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white font-medium truncate">
-                          {clip.campaign.title}
-                        </p>
-                        <p className="text-xs text-zinc-400">
-                          {clip.currentViews.toLocaleString()} views
-                        </p>
-                      </div>
-                      <div className="ml-2 text-right">
-                        <Badge
-                          variant="secondary"
-                          className={`${
-                            clip.status === "PENDING"
-                              ? "bg-yellow-500/20 text-yellow-400"
-                              : clip.status === "APPROVED"
-                                ? "bg-emerald-500/20 text-emerald-400"
-                                : "bg-red-500/20 text-red-400"
-                          } border-0`}
-                        >
-                          {clip.status === "PENDING"
-                            ? "Pendente"
+          </div>
+          {recentClips.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border p-8 text-center">
+              <p className="text-muted-foreground mb-4">
+                Você ainda não submeteu nenhum clip.
+              </p>
+              <Link
+                href="/dashboard/explore"
+                className="text-primary hover:underline"
+              >
+                Explorar campanhas →
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {recentClips.map((clip) => (
+                <div
+                  key={clip.id}
+                  className="rounded-xl border border-border bg-card p-4"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">
+                        {clip.campaign.title}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {clip.currentViews.toLocaleString()} views •{" "}
+                        {clip.platform}
+                      </p>
+                    </div>
+                    <div className="ml-4 text-right">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                          clip.status === "PENDING"
+                            ? "bg-warning/20 text-warning"
                             : clip.status === "APPROVED"
-                              ? "Aprovado"
-                              : "Rejeitado"}
-                        </Badge>
-                        {clip.status === "APPROVED" && (
-                          <p className="text-xs text-emerald-400 mt-1">
-                            + R$ {Number(clip.earnings).toFixed(2)}
-                          </p>
-                        )}
-                      </div>
+                              ? "bg-success/20 text-success"
+                              : "bg-destructive/20 text-destructive"
+                        }`}
+                      >
+                        {clip.status === "PENDING"
+                          ? "Pendente"
+                          : clip.status === "APPROVED"
+                            ? "Aprovado"
+                            : "Rejeitado"}
+                      </span>
+                      {clip.status === "APPROVED" && (
+                        <p className="text-sm text-success mt-1">
+                          + R$ {Number(clip.earnings).toFixed(2)}
+                        </p>
+                      )}
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

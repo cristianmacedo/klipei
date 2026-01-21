@@ -82,97 +82,82 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-zinc-400">Carregando...</p>
+        <p className="text-muted-foreground">Carregando...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-8 max-w-2xl">
       <div>
-        <h1 className="text-3xl font-bold text-white">Configurações</h1>
-        <p className="text-zinc-400">Gerencie seu perfil</p>
+        <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">
+          Configurações
+        </h1>
+        <p className="mt-1 text-muted-foreground">Gerencie seu perfil</p>
       </div>
 
       {/* Quick Link to Wallet */}
-      <Card className="bg-zinc-800 border-zinc-700">
+      <Card>
         <CardContent className="pt-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-white font-medium">Carteira</p>
-              <p className="text-sm text-zinc-400">
+              <p className="font-medium">Carteira</p>
+              <p className="text-sm text-muted-foreground">
                 Saldo: R$ {Number(user?.balance || 0).toFixed(2)}
               </p>
             </div>
             <Link href="/dashboard/wallet">
-              <Button variant="outline" className="border-zinc-600">
-                Gerenciar Carteira
-              </Button>
+              <Button variant="outline">Gerenciar Carteira</Button>
             </Link>
           </div>
         </CardContent>
       </Card>
 
       <form onSubmit={handleSave}>
-        <Card className="bg-zinc-800 border-zinc-700">
+        <Card>
           <CardHeader>
-            <CardTitle className="text-white">Perfil</CardTitle>
-            <CardDescription className="text-zinc-400">
-              Suas informações básicas
-            </CardDescription>
+            <CardTitle>Perfil</CardTitle>
+            <CardDescription>Suas informações básicas</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-zinc-300">
-                Email
-              </Label>
+              <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
                 value={user?.email || ""}
                 disabled
-                className="bg-zinc-700 border-zinc-600 text-zinc-400"
               />
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-muted-foreground">
                 O email não pode ser alterado
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="name" className="text-zinc-300">
-                Nome
-              </Label>
+              <Label htmlFor="name">Nome</Label>
               <Input
                 id="name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="bg-zinc-700 border-zinc-600 text-white"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="pixKey" className="text-zinc-300">
-                Chave PIX
-              </Label>
+              <Label htmlFor="pixKey">Chave PIX</Label>
               <Input
                 id="pixKey"
                 type="text"
                 value={pixKey}
                 onChange={(e) => setPixKey(e.target.value)}
                 placeholder="CPF, email, telefone ou chave aleatória"
-                className="bg-zinc-700 border-zinc-600 text-white"
               />
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-muted-foreground">
                 Usada para receber seus pagamentos (saques)
               </p>
             </div>
 
-            <Button
-              type="submit"
-              className="bg-emerald-600 hover:bg-emerald-700"
-              disabled={saving}
-            >
+            <Button type="submit" disabled={saving}>
               {saving ? "Salvando..." : "Salvar alterações"}
             </Button>
           </CardContent>

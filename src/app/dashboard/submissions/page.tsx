@@ -1,200 +1,269 @@
-export const dynamic = "force-dynamic";
+"use client";
 
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
-import { db, campaigns, clips } from "@/db";
-import { eq, desc } from "drizzle-orm";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { SubmissionsListUnified } from "@/components/submissions-list-unified";
+import { SubmissionCard } from "@/components/dashboard/submission-card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { toast } from "sonner";
 
-interface SubmissionsPageProps {
-  searchParams: Promise<{ tab?: string }>;
+interface Clip {
+  id: string;
+  platform: string;
+  videoUrl: string;
+  currentViews: number;
+  earnings: string;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "FLAGGED";
+  submittedAt: string;
+  campaign: {
+    id: string;
+    title: string;
+    creator: {
+      id: string;
+      name: string | null;
+      email: string;
+    };
+  };
+  clipper: {
+    id: string;
+    name: string | null;
+    email: string;
+    avatarUrl: string | null;
+  };
 }
 
-export default async function SubmissionsPage({
-  searchParams,
-}: SubmissionsPageProps) {
-  const { tab } = await searchParams;
-  const defaultTab = tab === "enviadas" ? "enviadas" : "recebidas";
+export default function SubmissionsPage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [receivedClips, setReceivedClips] = useState<Clip[]>([]);
+  const [sentClips, setSentClips] = useState<Clip[]>([]);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  useEffect(() => {
+    fetchSubmissions();
+  }, []);
 
-  if (!user) return null;
+  const fetchSubmissions = async () => {
+    try {
+      const response = await fetch("/api/clips");
+      const data = await response.json();
 
-  // Get user's campaigns (to find received submissions)
-  const userCampaigns = await db.query.campaigns.findMany({
-    where: eq(campaigns.creatorId, user.id),
-  });
+      if (response.ok) {
+        setReceivedClips(data.received || []);
+        setSentClips(data.sent || []);
+      }
+    } catch {
+      toast.error("Erro ao carregar submissões");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const campaignIds = userCampaigns.map((c) => c.id);
+  const handleApprove = async (clipId: string) => {
+    setActionLoading(clipId);
+    try {
+      const response = await fetch(`/api/clips/${clipId}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "approve" }),
+      });
 
-  // Get all clips
-  const allClips = await db.query.clips.findMany({
-    with: {
-      campaign: {
-        with: {
-          creator: true,
-        },
-      },
-      clipper: true,
-    },
-    orderBy: [desc(clips.submittedAt)],
-  });
+      if (response.ok) {
+        toast.success("Clip aprovado com sucesso!");
+        fetchSubmissions();
+        router.refresh();
+      } else {
+        const data = await response.json();
+        toast.error(data.error || "Erro ao aprovar clip");
+      }
+    } catch {
+      toast.error("Erro ao aprovar clip");
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
-  // Received submissions (clips on user's campaigns)
-  const receivedClips = allClips.filter((clip) =>
-    campaignIds.includes(clip.campaignId)
-  );
+  const handleReject = async (clipId: string) => {
+    setActionLoading(clipId);
+    try {
+      const response = await fetch(`/api/clips/${clipId}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reject" }),
+      });
 
-  // Sent submissions (clips submitted by user)
-  const sentClips = allClips.filter((clip) => clip.clipperId === user.id);
+      if (response.ok) {
+        toast.success("Clip rejeitado");
+        fetchSubmissions();
+        router.refresh();
+      } else {
+        const data = await response.json();
+        toast.error(data.error || "Erro ao rejeitar clip");
+      }
+    } catch {
+      toast.error("Erro ao rejeitar clip");
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
-  // Stats
-  const receivedPending = receivedClips.filter(
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffHours = Math.floor(
+      (now.getTime() - date.getTime()) / (1000 * 60 * 60)
+    );
+
+    if (diffHours < 1) return "Agora há pouco";
+    if (diffHours < 24) return `Há ${diffHours} horas`;
+    if (diffHours < 48) return "Ontem";
+    return date.toLocaleDateString("pt-BR");
+  };
+
+  const pendingReceivedCount = receivedClips.filter(
     (c) => c.status === "PENDING"
   ).length;
-  const sentPending = sentClips.filter((c) => c.status === "PENDING").length;
+  const pendingSentCount = sentClips.filter(
+    (c) => c.status === "PENDING"
+  ).length;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <p className="text-muted-foreground">Carregando...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-white">Submissões</h1>
-        <p className="text-zinc-400">
-          Gerencie submissões recebidas e enviadas
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">
+            Submissões
+          </h1>
+          {pendingReceivedCount > 0 && (
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-warning/20 text-xs font-semibold text-warning">
+              {pendingReceivedCount}
+            </span>
+          )}
+        </div>
+        <p className="mt-1 text-muted-foreground">
+          Revise e aprove clips submetidos para suas campanhas.
         </p>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-zinc-800 border-zinc-700">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">
-              Recebidas
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-white">
-              {receivedClips.length}
-            </p>
-            <p className="text-xs text-zinc-500">
-              {receivedPending} pendentes
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-zinc-800 border-zinc-700">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">
-              Enviadas
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-white">{sentClips.length}</p>
-            <p className="text-xs text-zinc-500">{sentPending} pendentes</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-zinc-800 border-zinc-700">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">
-              Aprovadas (Recebidas)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-emerald-400">
-              {receivedClips.filter((c) => c.status === "APPROVED").length}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-zinc-800 border-zinc-700">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">
-              Aprovadas (Enviadas)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-emerald-400">
-              {sentClips.filter((c) => c.status === "APPROVED").length}
-            </p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="rounded-xl border border-border bg-card p-4 text-center">
+          <p className="text-2xl font-bold">{receivedClips.length}</p>
+          <p className="text-sm text-muted-foreground">Recebidas</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4 text-center">
+          <p className="text-2xl font-bold">{sentClips.length}</p>
+          <p className="text-sm text-muted-foreground">Enviadas</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4 text-center">
+          <p className="text-2xl font-bold text-success">
+            {receivedClips.filter((c) => c.status === "APPROVED").length}
+          </p>
+          <p className="text-sm text-muted-foreground">Aprovadas</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4 text-center">
+          <p className="text-2xl font-bold text-warning">
+            {pendingReceivedCount + pendingSentCount}
+          </p>
+          <p className="text-sm text-muted-foreground">Pendentes</p>
+        </div>
       </div>
 
-      <Tabs defaultValue={defaultTab} className="space-y-6">
-        <TabsList className="bg-zinc-800 border-zinc-700">
-          <TabsTrigger
-            value="recebidas"
-            className="data-[state=active]:bg-zinc-700"
-          >
+      {/* Tabs */}
+      <Tabs defaultValue="received" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="received">
             Recebidas ({receivedClips.length})
           </TabsTrigger>
-          <TabsTrigger
-            value="enviadas"
-            className="data-[state=active]:bg-zinc-700"
-          >
-            Enviadas ({sentClips.length})
-          </TabsTrigger>
+          <TabsTrigger value="sent">Enviadas ({sentClips.length})</TabsTrigger>
         </TabsList>
 
         {/* Received Tab */}
-        <TabsContent value="recebidas">
+        <TabsContent value="received">
           {receivedClips.length === 0 ? (
-            <Card className="bg-zinc-800 border-zinc-700">
-              <CardContent className="py-12 text-center">
-                <p className="text-zinc-500 mb-2">
-                  Nenhuma submissão recebida ainda.
-                </p>
-                <p className="text-zinc-600 text-sm">
-                  Crie uma campanha para começar a receber submissões de
-                  clippers.
-                </p>
-                <Link
-                  href="/dashboard/campaigns/new"
-                  className="text-emerald-400 hover:underline text-sm mt-4 inline-block"
-                >
-                  Criar campanha →
-                </Link>
-              </CardContent>
-            </Card>
+            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16">
+              <p className="text-muted-foreground mb-2">
+                Nenhuma submissão recebida ainda.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Crie uma campanha para começar a receber submissões de clippers.
+              </p>
+              <Link
+                href="/dashboard/campaigns"
+                className="text-primary hover:underline text-sm mt-4"
+              >
+                Criar campanha →
+              </Link>
+            </div>
           ) : (
-            <SubmissionsListUnified
-              clips={receivedClips}
-              mode="received"
-              showCampaign={true}
-            />
+            <div className="grid gap-4 md:grid-cols-2">
+              {receivedClips.map((clip) => (
+                <SubmissionCard
+                  key={clip.id}
+                  id={clip.id}
+                  clipper={clip.clipper.name || clip.clipper.email}
+                  clipperAvatar={clip.clipper.avatarUrl}
+                  campaign={clip.campaign.title}
+                  platform={clip.platform}
+                  videoUrl={clip.videoUrl}
+                  views={clip.currentViews}
+                  earnings={Number(clip.earnings)}
+                  status={clip.status}
+                  submittedAt={formatDate(clip.submittedAt)}
+                  isOwner
+                  isLoading={actionLoading === clip.id}
+                  onApprove={handleApprove}
+                  onReject={handleReject}
+                />
+              ))}
+            </div>
           )}
         </TabsContent>
 
         {/* Sent Tab */}
-        <TabsContent value="enviadas">
+        <TabsContent value="sent">
           {sentClips.length === 0 ? (
-            <Card className="bg-zinc-800 border-zinc-700">
-              <CardContent className="py-12 text-center">
-                <p className="text-zinc-500 mb-2">
-                  Você ainda não enviou nenhuma submissão.
-                </p>
-                <p className="text-zinc-600 text-sm">
-                  Explore campanhas e submeta seus clips para ganhar.
-                </p>
-                <Link
-                  href="/dashboard/campaigns"
-                  className="text-emerald-400 hover:underline text-sm mt-4 inline-block"
-                >
-                  Explorar campanhas →
-                </Link>
-              </CardContent>
-            </Card>
+            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16">
+              <p className="text-muted-foreground mb-2">
+                Você ainda não enviou nenhuma submissão.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Explore campanhas e submeta seus clips para ganhar.
+              </p>
+              <Link
+                href="/dashboard/explore"
+                className="text-primary hover:underline text-sm mt-4"
+              >
+                Explorar campanhas →
+              </Link>
+            </div>
           ) : (
-            <SubmissionsListUnified
-              clips={sentClips}
-              mode="sent"
-              showCampaign={true}
-            />
+            <div className="grid gap-4 md:grid-cols-2">
+              {sentClips.map((clip) => (
+                <SubmissionCard
+                  key={clip.id}
+                  id={clip.id}
+                  clipper={clip.clipper.name || clip.clipper.email}
+                  clipperAvatar={clip.clipper.avatarUrl}
+                  campaign={clip.campaign.title}
+                  platform={clip.platform}
+                  videoUrl={clip.videoUrl}
+                  views={clip.currentViews}
+                  earnings={Number(clip.earnings)}
+                  status={clip.status}
+                  submittedAt={formatDate(clip.submittedAt)}
+                />
+              ))}
+            </div>
           )}
         </TabsContent>
       </Tabs>

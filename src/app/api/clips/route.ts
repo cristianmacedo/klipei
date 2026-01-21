@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { db, clips, campaigns, users } from "@/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import {
   detectPlatform,
   extractYouTubeVideoId,
@@ -19,6 +19,55 @@ const createClipSchema = z.object({
   verificationCode: z.string(),
   comment: z.string().optional(),
 });
+
+export async function GET() {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    }
+
+    // Get user's campaigns (to find received submissions)
+    const userCampaigns = await db.query.campaigns.findMany({
+      where: eq(campaigns.creatorId, user.id),
+    });
+
+    const campaignIds = userCampaigns.map((c) => c.id);
+
+    // Get all clips
+    const allClips = await db.query.clips.findMany({
+      with: {
+        campaign: {
+          with: {
+            creator: true,
+          },
+        },
+        clipper: true,
+      },
+      orderBy: [desc(clips.submittedAt)],
+    });
+
+    // Received submissions (clips on user's campaigns)
+    const receivedClips = allClips.filter((clip) =>
+      campaignIds.includes(clip.campaignId)
+    );
+
+    // Sent submissions (clips submitted by user)
+    const sentClips = allClips.filter((clip) => clip.clipperId === user.id);
+
+    return NextResponse.json({
+      received: receivedClips,
+      sent: sentClips,
+    });
+  } catch (error) {
+    console.error("Error fetching clips:", error);
+    return NextResponse.json({ error: "Erro interno" }, { status: 500 });
+  }
+}
 
 export async function POST(request: Request) {
   try {

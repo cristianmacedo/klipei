@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { db, users } from "@/db";
 import { eq } from "drizzle-orm";
-import { DashboardNav } from "@/components/dashboard-nav";
+import { Sidebar } from "@/components/dashboard/sidebar";
 
 export default async function DashboardLayout({
   children,
@@ -40,9 +40,13 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-zinc-900">
-      <DashboardNav user={dbUser} />
-      <main className="container mx-auto px-4 py-8">{children}</main>
+    <div className="min-h-screen bg-background">
+      <Sidebar user={dbUser} />
+      <main className="lg:pl-64">
+        <div className="px-4 py-6 lg:px-8 lg:py-8">
+          <div className="pt-12 lg:pt-0">{children}</div>
+        </div>
+      </main>
     </div>
   );
 }

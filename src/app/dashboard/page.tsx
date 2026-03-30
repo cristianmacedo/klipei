@@ -10,7 +10,7 @@ import { ViewsChart } from "@/components/dashboard/views-chart";
 import { WalletCard } from "@/components/dashboard/wallet-card";
 import { SubmitClipModal } from "@/components/dashboard/submit-clip-modal";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Eye, ExternalLink } from "lucide-react";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -26,11 +26,16 @@ export default async function DashboardPage() {
 
   if (!dbUser) return null;
 
-  // Get user's campaigns (as creator)
+  // Get user's campaigns (as creator) with clipper info
   const userCampaigns = await db.query.campaigns.findMany({
     where: eq(campaigns.creatorId, user.id),
     with: {
-      clips: true,
+      clips: {
+        with: {
+          clipper: true,
+        },
+        orderBy: [desc(clips.submittedAt)],
+      },
     },
     orderBy: [desc(campaigns.createdAt)],
   });
@@ -73,7 +78,20 @@ export default async function DashboardPage() {
 
   // Recent data
   const recentCampaigns = userCampaigns.slice(0, 2);
-  const recentClips = userClips.slice(0, 3);
+  
+  // Get recent received submissions (clips submitted TO user's campaigns)
+  const receivedSubmissions = userCampaigns
+    .flatMap((campaign) =>
+      campaign.clips.map((clip) => ({
+        ...clip,
+        campaignTitle: campaign.title,
+      }))
+    )
+    .sort(
+      (a, b) =>
+        new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+    )
+    .slice(0, 3);
 
   // Prepare campaign cards data
   const campaignCardsData = recentCampaigns.map((campaign) => ({
@@ -197,10 +215,10 @@ export default async function DashboardPage() {
           )}
         </div>
 
-        {/* Recent Submissions */}
+        {/* Recent Received Submissions */}
         <div>
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Atividade recente</h2>
+            <h2 className="text-lg font-semibold">Submissões recentes</h2>
             <Link
               href="/dashboard/submissions"
               className="text-sm text-primary hover:underline"
@@ -208,60 +226,122 @@ export default async function DashboardPage() {
               Ver todas
             </Link>
           </div>
-          {recentClips.length === 0 ? (
+          {receivedSubmissions.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border p-8 text-center">
               <p className="text-muted-foreground mb-4">
-                Você ainda não submeteu nenhum clip.
+                Nenhuma submissão recebida ainda.
               </p>
-              <Link
-                href="/dashboard/explore"
-                className="text-primary hover:underline"
-              >
-                Explorar campanhas →
-              </Link>
+              <p className="text-sm text-muted-foreground">
+                Crie campanhas para receber clips de outros usuários.
+              </p>
             </div>
           ) : (
             <div className="space-y-3">
-              {recentClips.map((clip) => (
-                <div
-                  key={clip.id}
-                  className="rounded-xl border border-border bg-card p-4"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">
-                        {clip.campaign.title}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {clip.currentViews.toLocaleString()} views •{" "}
-                        {clip.platform}
-                      </p>
-                    </div>
-                    <div className="ml-4 text-right">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                          clip.status === "PENDING"
-                            ? "bg-warning/20 text-warning"
-                            : clip.status === "APPROVED"
-                              ? "bg-success/20 text-success"
-                              : "bg-destructive/20 text-destructive"
-                        }`}
-                      >
-                        {clip.status === "PENDING"
-                          ? "Pendente"
-                          : clip.status === "APPROVED"
-                            ? "Aprovado"
-                            : "Rejeitado"}
-                      </span>
-                      {clip.status === "APPROVED" && (
-                        <p className="text-sm text-success mt-1">
-                          + R$ {Number(clip.earnings).toFixed(2)}
+              {receivedSubmissions.map((clip) => {
+                const diffHours = Math.floor(
+                  (Date.now() - new Date(clip.submittedAt).getTime()) /
+                    (1000 * 60 * 60)
+                );
+                const timeLabel =
+                  diffHours < 1
+                    ? "Agora"
+                    : diffHours < 24
+                      ? `Há ${diffHours} horas`
+                      : diffHours < 48
+                        ? "Ontem"
+                        : new Date(clip.submittedAt).toLocaleDateString("pt-BR");
+
+                return (
+                  <div
+                    key={clip.id}
+                    className="rounded-xl border border-border bg-card p-4"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary text-sm font-semibold">
+                        {(clip.clipper.name || clip.clipper.email)
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .toUpperCase()
+                          .slice(0, 2)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-medium truncate">
+                            {clip.clipper.name || clip.clipper.email}
+                          </p>
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                              clip.status === "PENDING"
+                                ? "bg-warning/20 text-warning"
+                                : clip.status === "APPROVED"
+                                  ? "bg-success/20 text-success"
+                                  : "bg-destructive/20 text-destructive"
+                            }`}
+                          >
+                            {clip.status === "PENDING"
+                              ? "Pendente"
+                              : clip.status === "APPROVED"
+                                ? "Aprovado"
+                                : "Rejeitado"}
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground truncate">
+                          {clip.campaignTitle}
                         </p>
-                      )}
+                        <div className="mt-2 flex items-center gap-3 text-sm">
+                          <span className="flex items-center gap-1 text-muted-foreground">
+                            <Eye className="h-3.5 w-3.5" />
+                            {clip.currentViews >= 1000
+                              ? `${(clip.currentViews / 1000).toFixed(1)}k`
+                              : clip.currentViews}{" "}
+                            views
+                          </span>
+                          <span className="font-medium text-success">
+                            R$ {Number(clip.earnings).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                            clip.platform === "TIKTOK"
+                              ? "bg-[#ff0050]/20 text-[#ff0050]"
+                              : clip.platform === "YOUTUBE"
+                                ? "bg-[#ff0000]/20 text-[#ff4444]"
+                                : clip.platform === "INSTAGRAM"
+                                  ? "bg-[#e4405f]/20 text-[#e4405f]"
+                                  : "bg-[#1da1f2]/20 text-[#1da1f2]"
+                          }`}
+                        >
+                          {clip.platform === "TIKTOK"
+                            ? "TikTok"
+                            : clip.platform === "YOUTUBE"
+                              ? "YouTube"
+                              : clip.platform === "INSTAGRAM"
+                                ? "Instagram"
+                                : clip.platform}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {timeLabel}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex items-center gap-2 border-t border-border pt-3">
+                      <Button variant="ghost" size="sm" asChild className="text-muted-foreground">
+                        <a
+                          href={clip.videoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <ExternalLink className="mr-1.5 h-4 w-4" />
+                          Ver vídeo
+                        </a>
+                      </Button>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

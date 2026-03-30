@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ArrowUpRight } from "lucide-react";
+import { Wallet, ArrowUpRight } from "lucide-react";
 
 interface WalletCardProps {
   balance: number;
@@ -13,7 +13,12 @@ export function WalletCard({ balance, pendingEarnings = 0 }: WalletCardProps) {
   return (
     <div className="rounded-xl border border-border bg-card p-5">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold">Carteira</h3>
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/20 text-primary">
+            <Wallet className="h-5 w-5" />
+          </div>
+          <h3 className="font-semibold">Carteira</h3>
+        </div>
         <Link href="/dashboard/wallet">
           <Button variant="ghost" size="sm">
             Ver tudo

@@ -27,6 +27,13 @@ const platformColors: Record<string, string> = {
   TWITTER: "bg-[#1da1f2]/20 text-[#1da1f2]",
 };
 
+const platformLabels: Record<string, string> = {
+  TIKTOK: "TikTok",
+  YOUTUBE: "YouTube",
+  INSTAGRAM: "Instagram",
+  TWITTER: "Twitter",
+};
+
 const statusColors = {
   ACTIVE: "bg-success/20 text-success",
   PAUSED: "bg-warning/20 text-warning",
@@ -57,50 +64,62 @@ export function CampaignCard({
   const progress = budget > 0 ? (spent / budget) * 100 : 0;
   const href = isExplore ? `/campaigns/${id}` : `/dashboard/campaigns/${id}`;
 
+  const formatCurrency = (value: number) => {
+    return value.toLocaleString("pt-BR", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: value >= 1000 ? 0 : 2,
+    });
+  };
+
   return (
     <div className="group rounded-xl border border-border bg-card p-5 transition-all hover:border-primary/50">
+      {/* Header */}
       <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 overflow-hidden">
-          <div className="flex items-center gap-2">
-            <h3 className="truncate font-semibold">{title}</h3>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="font-semibold text-base truncate">{title}</h3>
             <Badge variant="secondary" className={statusColors[status]}>
               {statusLabels[status]}
             </Badge>
           </div>
           {creator && (
-            <p className="mt-1 text-sm text-muted-foreground">{creator}</p>
+            <p className="mt-1 text-sm text-muted-foreground truncate">
+              {creator}
+            </p>
           )}
         </div>
-        <div className="text-right">
-          <p className="text-lg font-bold text-primary">R$ {cpm.toFixed(2)}</p>
+        <div className="text-right shrink-0">
+          <p className="text-xl font-bold text-primary">R$ {cpm.toFixed(2)}</p>
           <p className="text-xs text-muted-foreground">por 1k views</p>
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-1.5">
+      {/* Platforms */}
+      <div className="mt-3 flex flex-wrap gap-1.5">
         {platforms.map((platform) => (
           <Badge
             key={platform}
             variant="secondary"
             className={platformColors[platform] || "bg-secondary"}
           >
-            {platform}
+            {platformLabels[platform] || platform}
           </Badge>
         ))}
       </div>
 
+      {/* Budget Progress */}
       <div className="mt-4">
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">Orçamento</span>
           <span className="font-medium">
-            R$ {spent.toLocaleString("pt-BR")} / R${" "}
-            {budget.toLocaleString("pt-BR")}
+            R$ {formatCurrency(spent)} / R$ {formatCurrency(budget)}
           </span>
         </div>
         <Progress value={progress} className="mt-2 h-2" />
       </div>
 
-      <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
+      {/* Footer */}
+      <div className="mt-4 flex items-center justify-between pt-4 border-t border-border">
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <Eye className="h-4 w-4" />
@@ -111,18 +130,13 @@ export function CampaignCard({
             {clippers} clippers
           </span>
         </div>
-        {isExplore ? (
-          <Link href={href}>
-            <Button size="sm">Participar</Button>
-          </Link>
-        ) : (
-          <Link href={href}>
-            <Button size="sm" variant="ghost">
-              <ExternalLink className="mr-1.5 h-4 w-4" />
-              Ver detalhes
-            </Button>
-          </Link>
-        )}
+        <Link
+          href={href}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ExternalLink className="h-4 w-4" />
+          {isExplore ? "Participar" : "Ver detalhes"}
+        </Link>
       </div>
     </div>
   );

@@ -26,6 +26,15 @@ interface SubmissionsListProps {
   isOwner?: boolean;
 }
 
+type FilterType = "all" | "PENDING" | "APPROVED" | "REJECTED";
+
+const filters: { value: FilterType; label: string }[] = [
+  { value: "all", label: "Todas" },
+  { value: "PENDING", label: "Pendentes" },
+  { value: "APPROVED", label: "Aprovadas" },
+  { value: "REJECTED", label: "Rejeitadas" },
+];
+
 function formatDate(dateString: Date) {
   const date = new Date(dateString);
   const now = new Date();
@@ -46,6 +55,7 @@ export function SubmissionsList({
 }: SubmissionsListProps) {
   const router = useRouter();
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
+  const [activeFilter, setActiveFilter] = useState<FilterType>("all");
 
   const handleReview = async (clipId: string, action: "approve" | "reject") => {
     setLoadingIds((prev) => new Set(prev).add(clipId));
@@ -79,11 +89,17 @@ export function SubmissionsList({
     }
   };
 
-  const pendingClips = clips.filter((c) => c.status === "PENDING");
-  const approvedClips = clips.filter((c) => c.status === "APPROVED");
-  const rejectedClips = clips.filter(
-    (c) => c.status === "REJECTED" || c.status === "FLAGGED"
-  );
+  const pendingCount = clips.filter((c) => c.status === "PENDING").length;
+
+  const filteredClips =
+    activeFilter === "all"
+      ? clips
+      : clips.filter((clip) => {
+          if (activeFilter === "REJECTED") {
+            return clip.status === "REJECTED" || clip.status === "FLAGGED";
+          }
+          return clip.status === activeFilter;
+        });
 
   if (clips.length === 0) {
     return (
@@ -100,88 +116,58 @@ export function SubmissionsList({
 
   return (
     <div className="space-y-6">
-      {/* Pending Submissions */}
-      {pendingClips.length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            Pendentes
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-warning/20 text-xs font-semibold text-warning">
-              {pendingClips.length}
-            </span>
-          </h3>
-          <div className="grid gap-4 md:grid-cols-2">
-            {pendingClips.map((clip) => (
-              <SubmissionCard
-                key={clip.id}
-                id={clip.id}
-                clipper={clip.clipper.name || clip.clipper.email}
-                clipperAvatar={clip.clipper.avatarUrl}
-                campaign={campaignTitle}
-                platform={clip.platform}
-                videoUrl={clip.videoUrl}
-                views={clip.currentViews}
-                earnings={Number(clip.earnings)}
-                status={clip.status}
-                submittedAt={formatDate(clip.submittedAt)}
-                isOwner={isOwner}
-                isLoading={loadingIds.has(clip.id)}
-                onApprove={(id) => handleReview(id, "approve")}
-                onReject={(id) => handleReview(id, "reject")}
-              />
-            ))}
-          </div>
+      {/* Filters */}
+      <div className="flex items-center gap-4">
+        <div className="flex gap-1 p-1 bg-muted/50 rounded-lg">
+          {filters.map((filter) => (
+            <button
+              key={filter.value}
+              onClick={() => setActiveFilter(filter.value)}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeFilter === filter.value
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {filter.label}
+              {filter.value === "PENDING" && pendingCount > 0 && (
+                <span className="ml-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-warning/20 text-xs font-semibold text-warning">
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
-      )}
+      </div>
 
-      {/* Approved Submissions */}
-      {approvedClips.length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold mb-4">
-            Aprovados ({approvedClips.length})
-          </h3>
-          <div className="grid gap-4 md:grid-cols-2">
-            {approvedClips.map((clip) => (
-              <SubmissionCard
-                key={clip.id}
-                id={clip.id}
-                clipper={clip.clipper.name || clip.clipper.email}
-                clipperAvatar={clip.clipper.avatarUrl}
-                campaign={campaignTitle}
-                platform={clip.platform}
-                videoUrl={clip.videoUrl}
-                views={clip.currentViews}
-                earnings={Number(clip.earnings)}
-                status={clip.status}
-                submittedAt={formatDate(clip.submittedAt)}
-              />
-            ))}
-          </div>
+      {/* Submissions Grid */}
+      {filteredClips.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16">
+          <p className="text-muted-foreground">
+            Nenhuma submissão encontrada para este filtro.
+          </p>
         </div>
-      )}
-
-      {/* Rejected Submissions */}
-      {rejectedClips.length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold mb-4">
-            Rejeitados ({rejectedClips.length})
-          </h3>
-          <div className="grid gap-4 md:grid-cols-2">
-            {rejectedClips.map((clip) => (
-              <SubmissionCard
-                key={clip.id}
-                id={clip.id}
-                clipper={clip.clipper.name || clip.clipper.email}
-                clipperAvatar={clip.clipper.avatarUrl}
-                campaign={campaignTitle}
-                platform={clip.platform}
-                videoUrl={clip.videoUrl}
-                views={clip.currentViews}
-                earnings={Number(clip.earnings)}
-                status={clip.status}
-                submittedAt={formatDate(clip.submittedAt)}
-              />
-            ))}
-          </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          {filteredClips.map((clip) => (
+            <SubmissionCard
+              key={clip.id}
+              id={clip.id}
+              clipper={clip.clipper.name || clip.clipper.email}
+              clipperAvatar={clip.clipper.avatarUrl}
+              campaign={campaignTitle}
+              platform={clip.platform}
+              videoUrl={clip.videoUrl}
+              views={clip.currentViews}
+              earnings={Number(clip.earnings)}
+              status={clip.status}
+              submittedAt={formatDate(clip.submittedAt)}
+              isOwner={isOwner && clip.status === "PENDING"}
+              isLoading={loadingIds.has(clip.id)}
+              onApprove={(id) => handleReview(id, "approve")}
+              onReject={(id) => handleReview(id, "reject")}
+            />
+          ))}
         </div>
       )}
     </div>

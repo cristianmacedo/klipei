@@ -4,9 +4,9 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { db, campaigns } from "@/db";
 import { eq, desc, ne, and } from "drizzle-orm";
-import { CampaignCard } from "@/components/dashboard/campaign-card";
 import { Button } from "@/components/ui/button";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, Megaphone, DollarSign, Wallet } from "lucide-react";
+import { ExploreCampaigns } from "@/components/dashboard/explore-campaigns";
 
 export default async function ExplorePage() {
   const supabase = await createClient();
@@ -55,6 +55,15 @@ export default async function ExplorePage() {
       })
     : null;
 
+  const maxCpm = campaignCardsData.length > 0
+    ? Math.max(...campaignCardsData.map((c) => c.cpm))
+    : 0;
+
+  const totalBudget = campaignCardsData.reduce(
+    (acc, c) => acc + (c.budget - c.spent),
+    0
+  );
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -90,28 +99,41 @@ export default async function ExplorePage() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="rounded-xl border border-border bg-card p-4 text-center">
-          <p className="text-2xl font-bold">{campaignCardsData.length}</p>
-          <p className="text-sm text-muted-foreground">Campanhas disponíveis</p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="rounded-xl border border-border bg-card p-5">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/20 text-primary">
+              <Megaphone className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Campanhas disponíveis</p>
+              <p className="text-2xl font-bold">{campaignCardsData.length}</p>
+            </div>
+          </div>
         </div>
-        <div className="rounded-xl border border-border bg-card p-4 text-center">
-          <p className="text-2xl font-bold">
-            R${" "}
-            {campaignCardsData.length > 0
-              ? Math.max(...campaignCardsData.map((c) => c.cpm)).toFixed(2)
-              : "0.00"}
-          </p>
-          <p className="text-sm text-muted-foreground">Maior CPM</p>
+        <div className="rounded-xl border border-border bg-card p-5">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-success/20 text-success">
+              <DollarSign className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Maior CPM</p>
+              <p className="text-2xl font-bold">R$ {maxCpm.toFixed(2)}</p>
+            </div>
+          </div>
         </div>
-        <div className="rounded-xl border border-border bg-card p-4 text-center">
-          <p className="text-2xl font-bold">
-            R${" "}
-            {campaignCardsData
-              .reduce((acc, c) => acc + (c.budget - c.spent), 0)
-              .toLocaleString("pt-BR")}
-          </p>
-          <p className="text-sm text-muted-foreground">Orçamento total</p>
+        <div className="rounded-xl border border-border bg-card p-5">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent/20 text-accent">
+              <Wallet className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Orçamento total</p>
+              <p className="text-2xl font-bold">
+                R$ {totalBudget.toLocaleString("pt-BR")}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -126,11 +148,7 @@ export default async function ExplorePage() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {campaignCardsData.map((campaign) => (
-            <CampaignCard key={campaign.id} {...campaign} isExplore />
-          ))}
-        </div>
+        <ExploreCampaigns campaigns={campaignCardsData} />
       )}
     </div>
   );

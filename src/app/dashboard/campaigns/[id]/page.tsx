@@ -11,7 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CampaignActions } from "@/components/campaign-actions";
 import { SubmissionsList } from "@/components/dashboard/submissions-list";
-import { Eye, Users, ArrowLeft, Pencil } from "lucide-react";
+import { Eye, Users, ArrowLeft, Pencil, Wallet, DollarSign, Inbox } from "lucide-react";
 
 interface CampaignDetailPageProps {
   params: Promise<{ id: string }>;
@@ -129,47 +129,72 @@ export default async function CampaignDetailPage({
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="rounded-xl border border-border bg-card p-5">
-          <p className="text-sm text-muted-foreground">Orçamento</p>
-          <p className="mt-2 text-2xl font-bold">
-            R$ {Number(campaign.budget).toFixed(2)}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            R$ {budgetRemaining.toFixed(2)} restante
-          </p>
-          <Progress value={progress} className="mt-2 h-2" />
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/20 text-primary">
+              <Wallet className="h-6 w-6" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm text-muted-foreground">Orçamento</p>
+              <p className="text-xl font-bold">
+                R$ {Number(campaign.budget).toFixed(0)}
+              </p>
+            </div>
+          </div>
+          <div className="mt-3">
+            <p className="text-xs text-muted-foreground mb-1">
+              R$ {budgetRemaining.toFixed(2)} restante
+            </p>
+            <Progress value={progress} className="h-2" />
+          </div>
         </div>
 
         <div className="rounded-xl border border-border bg-card p-5">
-          <p className="text-sm text-muted-foreground">CPM</p>
-          <p className="mt-2 text-2xl font-bold text-primary">
-            R$ {Number(campaign.ratePerMil).toFixed(2)}
-          </p>
-          <p className="text-xs text-muted-foreground">por 1.000 views</p>
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-success/20 text-success">
+              <DollarSign className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">CPM</p>
+              <p className="text-xl font-bold">
+                R$ {Number(campaign.ratePerMil).toFixed(2)}
+              </p>
+              <p className="text-xs text-muted-foreground">por 1k views</p>
+            </div>
+          </div>
         </div>
 
         <div className="rounded-xl border border-border bg-card p-5">
-          <p className="text-sm text-muted-foreground">Submissões</p>
-          <p className="mt-2 text-2xl font-bold">{campaign.clips.length}</p>
-          <p className="text-xs text-warning">
-            {pendingClips.length} pendentes
-          </p>
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent/20 text-accent">
+              <Inbox className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Submissões</p>
+              <p className="text-xl font-bold">{campaign.clips.length}</p>
+              <p className="text-xs text-warning">
+                {pendingClips.length} pendentes
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="rounded-xl border border-border bg-card p-5">
-          <p className="text-sm text-muted-foreground">Desempenho</p>
-          <div className="mt-2 flex items-center gap-4">
-            <span className="flex items-center gap-1.5">
-              <Eye className="h-4 w-4 text-muted-foreground" />
-              <span className="font-bold">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-chart-4/20 text-chart-4">
+              <Eye className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Desempenho</p>
+              <p className="text-xl font-bold">
                 {totalViews >= 1000
                   ? `${(totalViews / 1000).toFixed(1)}k`
-                  : totalViews}
-              </span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Users className="h-4 w-4 text-muted-foreground" />
-              <span className="font-bold">{uniqueClippers}</span>
-            </span>
+                  : totalViews}{" "}
+                <span className="text-sm font-normal text-muted-foreground">views</span>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {uniqueClippers} clippers
+              </p>
+            </div>
           </div>
         </div>
       </div>

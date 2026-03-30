@@ -37,6 +37,13 @@ const platformColors: Record<string, string> = {
   TWITTER: "bg-[#1da1f2]/20 text-[#1da1f2]",
 };
 
+const platformLabels: Record<string, string> = {
+  TIKTOK: "TikTok",
+  YOUTUBE: "YouTube",
+  INSTAGRAM: "Instagram",
+  TWITTER: "Twitter",
+};
+
 export default async function CampaignPage({ params }: CampaignPageProps) {
   const { id } = await params;
 
@@ -231,7 +238,7 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
                         variant="secondary"
                         className={platformColors[platform]}
                       >
-                        {platform}
+                        {platformLabels[platform] || platform}
                       </Badge>
                     ))}
                   </div>

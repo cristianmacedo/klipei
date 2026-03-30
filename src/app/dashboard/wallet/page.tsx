@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { TransactionsList } from "@/components/dashboard/transactions-list";
 import { DepositButton } from "@/components/deposit-button";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Wallet, TrendingUp, ArrowDownLeft } from "lucide-react";
 import { toast } from "sonner";
 import {
   MINIMUM_WITHDRAWAL_AMOUNT,
@@ -233,14 +233,38 @@ export default function WalletPage() {
         <div className="space-y-6">
           {/* Balance Card */}
           <div className="rounded-xl border border-border bg-card p-6">
-            <p className="text-sm text-muted-foreground">Saldo disponível</p>
-            <p className="mt-2 text-4xl font-bold">
-              R$ {data.balance.toFixed(2)}
-            </p>
-            {data.totalEarnings > 0 && (
-              <p className="mt-2 text-sm text-muted-foreground">
-                Total ganho: R$ {data.totalEarnings.toFixed(2)}
-              </p>
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/20 text-primary">
+                <Wallet className="h-7 w-7" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Saldo disponível</p>
+                <p className="text-3xl font-bold">
+                  R$ {data.balance.toFixed(2)}
+                </p>
+              </div>
+            </div>
+            {(data.totalEarnings > 0 || data.totalSpent > 0) && (
+              <div className="mt-4 pt-4 border-t border-border grid grid-cols-2 gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-success/20 text-success">
+                    <TrendingUp className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Total ganho</p>
+                    <p className="font-semibold">R$ {data.totalEarnings.toFixed(2)}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-destructive/20 text-destructive">
+                    <ArrowDownLeft className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Total gasto</p>
+                    <p className="font-semibold">R$ {data.totalSpent.toFixed(2)}</p>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
 

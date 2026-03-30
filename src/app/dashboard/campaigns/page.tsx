@@ -4,9 +4,9 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { db, campaigns } from "@/db";
 import { eq, desc } from "drizzle-orm";
-import { CampaignCard } from "@/components/dashboard/campaign-card";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Megaphone, Pause, CheckCircle2 } from "lucide-react";
+import { CampaignsList } from "@/components/dashboard/campaigns-list";
 
 export default async function CampaignsPage() {
   const supabase = await createClient();
@@ -69,18 +69,39 @@ export default async function CampaignsPage() {
       </div>
 
       {/* Stats Summary */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="rounded-xl border border-border bg-card p-4 text-center">
-          <p className="text-2xl font-bold">{activeCampaigns.length}</p>
-          <p className="text-sm text-muted-foreground">Ativas</p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="rounded-xl border border-border bg-card p-5">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-success/20 text-success">
+              <Megaphone className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Ativas</p>
+              <p className="text-2xl font-bold">{activeCampaigns.length}</p>
+            </div>
+          </div>
         </div>
-        <div className="rounded-xl border border-border bg-card p-4 text-center">
-          <p className="text-2xl font-bold">{pausedCampaigns.length}</p>
-          <p className="text-sm text-muted-foreground">Pausadas</p>
+        <div className="rounded-xl border border-border bg-card p-5">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-warning/20 text-warning">
+              <Pause className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Pausadas</p>
+              <p className="text-2xl font-bold">{pausedCampaigns.length}</p>
+            </div>
+          </div>
         </div>
-        <div className="rounded-xl border border-border bg-card p-4 text-center">
-          <p className="text-2xl font-bold">{completedCampaigns.length}</p>
-          <p className="text-sm text-muted-foreground">Concluídas</p>
+        <div className="rounded-xl border border-border bg-card p-5">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+              <CheckCircle2 className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Concluídas</p>
+              <p className="text-2xl font-bold">{completedCampaigns.length}</p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -98,45 +119,7 @@ export default async function CampaignsPage() {
           </Link>
         </div>
       ) : (
-        <div className="space-y-8">
-          {/* Active Campaigns */}
-          {activeCampaigns.length > 0 && (
-            <div>
-              <h2 className="text-lg font-semibold mb-4">Campanhas Ativas</h2>
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {activeCampaigns.map((campaign) => (
-                  <CampaignCard key={campaign.id} {...campaign} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Paused Campaigns */}
-          {pausedCampaigns.length > 0 && (
-            <div>
-              <h2 className="text-lg font-semibold mb-4">Campanhas Pausadas</h2>
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {pausedCampaigns.map((campaign) => (
-                  <CampaignCard key={campaign.id} {...campaign} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Completed/Draft Campaigns */}
-          {completedCampaigns.length > 0 && (
-            <div>
-              <h2 className="text-lg font-semibold mb-4">
-                Concluídas / Rascunhos
-              </h2>
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {completedCampaigns.map((campaign) => (
-                  <CampaignCard key={campaign.id} {...campaign} />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        <CampaignsList campaigns={campaignCardsData} />
       )}
     </div>
   );
